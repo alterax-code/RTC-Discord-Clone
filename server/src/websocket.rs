@@ -1,0 +1,234 @@
+//! WebSocket - Real-time communication
+//! Responsable: Ladji, adapté avec auth JWT + filtrage par channel
+
+use axum::{
+    extract::{
+        ws::{Message as WsMessage, WebSocket, WebSocketUpgrade},
+        Query, State,
+    },
+    response::IntoResponse,
+};
+use futures::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use uuid::Uuid;
+
+use crate::auth::verify_jwt;
+use crate::AppState;
+
+/// Online users tracked in shared state
+pub type OnlineUsers = Arc<RwLock<HashSet<OnlineUser>>>;
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize)]
+pub struct OnlineUser {
+    pub user_id: String,
+    pub username: String,
+}
+
+/// Query params pour la connexion WebSocket
+#[derive(Debug, Deserialize)]
+pub struct WsConnectQuery {
+    pub token: String,
+}
+
+/// Upgrade la connexion HTTP en WebSocket
+pub async fn ws_handler(
+    ws: WebSocketUpgrade,
+    Query(params): Query<WsConnectQuery>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    // Vérifier le JWT AVANT d'upgrader
+    let claims = match verify_jwt(&params.token, &state.auth_cfg) {
+        Ok(c) => c,
+        Err(_) => {
+            return (axum::http::StatusCode::UNAUTHORIZED, "Invalid token").into_response();
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&claims.sub) {
+        Ok(uid) => uid,
+        Err(_) => {
+            return (axum::http::StatusCode::UNAUTHORIZED, "Invalid user").into_response();
+        }
+    };
+
+    // Récupérer le username
+    let username = sqlx::query_scalar::<_, String>("SELECT username FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    ws.on_upgrade(move |socket| handle_socket(socket, state, user_id.to_string(), username))
+        .into_response()
+}
+
+/// Gère une connexion WebSocket individuelle
+async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, username: String) {
+    let (mut sender, mut receiver) = socket.split();
+    let mut rx = state.bus.subscribe();
+
+    let online_user = OnlineUser {
+        user_id: user_id.clone(),
+        username: username.clone(),
+    };
+
+    // Ajouter aux users en ligne
+    state.online_users.write().await.insert(online_user.clone());
+
+    // Broadcast "user_online"
+    let online_event = serde_json::json!({
+        "type": "user_online",
+        "data": {
+            "user_id": user_id,
+            "username": username
+        }
+    });
+    let _ = state.bus.send(online_event.to_string());
+
+    // Envoyer la liste des users en ligne au nouvel arrivant
+    let online_list: Vec<OnlineUser> = state.online_users.read().await.iter().cloned().collect();
+    let list_event = serde_json::json!({
+        "type": "online_users",
+        "data": online_list
+    });
+    let _ = sender
+        .send(WsMessage::Text(list_event.to_string().into()))
+        .await;
+
+    let bus = state.bus.clone();
+    let user_id_clone = user_id.clone();
+    let username_clone = username.clone();
+
+    // Task : recevoir les messages broadcast et les envoyer au client
+    let mut send_task = tokio::spawn(async move {
+        while let Ok(msg) = rx.recv().await {
+            if sender.send(WsMessage::Text(msg.into())).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Task : recevoir les messages du client
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(msg)) = receiver.next().await {
+            match msg {
+                WsMessage::Text(text) => {
+                    let text_str = text.to_string();
+                    if let Ok(event) = serde_json::from_str::<serde_json::Value>(&text_str) {
+                        let event_type = event.get("type").and_then(|t| t.as_str());
+
+                        match event_type {
+                            Some("new_message") => {
+                                // Message envoyé via WS
+                                let channel_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("channel_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+                                let content = event
+                                    .get("data")
+                                    .and_then(|d| d.get("content"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+
+                                if !content.is_empty() {
+                                    // Persister en MongoDB
+                                    let saved = crate::mongo::create_message(
+                                        &state.messages,
+                                        channel_id.to_string(),
+                                        user_id_clone.clone(),
+                                        username_clone.clone(),
+                                        content.to_string(),
+                                    )
+                                    .await;
+
+                                    if let Some(msg) = saved {
+                                        let broadcast_event = serde_json::json!({
+                                            "type": "new_message",
+                                            "data": {
+                                                "id": msg.id.map(|id| id.to_hex()).unwrap_or_default(),
+                                                "channel_id": channel_id,
+                                                "user_id": user_id_clone,
+                                                "username": username_clone,
+                                                "content": content,
+                                                "created_at": msg.created_at.to_string()
+                                            }
+                                        });
+                                        let _ = bus.send(broadcast_event.to_string());
+                                    }
+                                }
+                            }
+                            Some("typing") | Some("user_typing") => {
+                                let channel_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("channel_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+
+                                let typing_event = serde_json::json!({
+                                    "type": "user_typing",
+                                    "data": {
+                                        "user_id": user_id_clone,
+                                        "username": username_clone,
+                                        "channel_id": channel_id
+                                    }
+                                });
+                                let _ = bus.send(typing_event.to_string());
+                            }
+                            Some("get_history") | Some("message_history") => {
+                                let channel_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("channel_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+
+                                let messages = crate::mongo::get_messages_by_channel(
+                                    &state.messages,
+                                    channel_id,
+                                )
+                                .await;
+
+                                let history_event = serde_json::json!({
+                                    "type": "message_history",
+                                    "data": {
+                                        "channel_id": channel_id,
+                                        "messages": messages
+                                    }
+                                });
+                                // Envoyer directement au bus (tout le monde reçoit)
+                                let _ = bus.send(history_event.to_string());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                WsMessage::Close(_) => break,
+                _ => {}
+            }
+        }
+    });
+
+    // Attendre qu'une des tasks se termine
+    tokio::select! {
+        _ = &mut send_task => recv_task.abort(),
+        _ = &mut recv_task => send_task.abort(),
+    }
+
+    // Retirer des users en ligne
+    state.online_users.write().await.remove(&online_user);
+
+    // Broadcast "user_offline"
+    let offline_event = serde_json::json!({
+        "type": "user_offline",
+        "data": {
+            "user_id": user_id,
+            "username": username
+        }
+    });
+    let _ = state.bus.send(offline_event.to_string());
+}
