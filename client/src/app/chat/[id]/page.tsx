@@ -591,7 +591,7 @@ export default function ChatPage({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            flex: 1,
+            gridColumn: "1 / -1",
             color: "#999",
           }}
         >
