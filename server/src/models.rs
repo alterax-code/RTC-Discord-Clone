@@ -72,6 +72,7 @@ pub struct UpdateChannelPayload {
 // ===================== SERVER MEMBER =====================
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[allow(dead_code)]
 pub struct ServerMember {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -172,13 +173,4 @@ pub struct LoginRequest {
 pub struct AuthResponse {
     pub token: String,
     pub user: UserPublic,
-}
-
-// ===================== WEBSOCKET EVENTS =====================
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WsEvent {
-    #[serde(rename = "type")]
-    pub event_type: String,
-    pub data: serde_json::Value,
 }

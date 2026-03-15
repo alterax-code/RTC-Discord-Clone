@@ -56,7 +56,10 @@ pub async fn create_server(
     Json(payload): Json<CreateServerPayload>,
 ) -> Result<(StatusCode, Json<Server>), StatusCode> {
     let pool = &state.db;
-
+let name = payload.name.trim();
+if name.is_empty() || name.len() > 100 {
+    return Err(StatusCode::BAD_REQUEST);
+}
     // Validation nom
     let name = payload.name.trim().to_string();
     if name.is_empty() || name.len() > 100 {
