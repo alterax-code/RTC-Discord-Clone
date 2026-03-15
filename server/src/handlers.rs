@@ -20,7 +20,6 @@ pub async fn health() -> Json<serde_json::Value> {
 
 // ==================== HELPERS ====================
 
-/// Récupère le rôle d'un user dans un serveur
 async fn get_member_role(pool: &sqlx::PgPool, user_id: Uuid, server_id: Uuid) -> Option<String> {
     sqlx::query_scalar::<_, String>(
         "SELECT role FROM server_members WHERE user_id = $1 AND server_id = $2",
@@ -32,12 +31,10 @@ async fn get_member_role(pool: &sqlx::PgPool, user_id: Uuid, server_id: Uuid) ->
     .ok()?
 }
 
-/// Vérifie si le user est au moins admin
 fn is_admin_or_owner(role: &str) -> bool {
     role == "admin" || role == "owner"
 }
 
-/// Génère un code d'invitation aléatoire
 fn generate_invite_code() -> String {
     use rand::Rng;
     let mut rng = rand::thread_rng();
@@ -47,20 +44,24 @@ fn generate_invite_code() -> String {
         .collect()
 }
 
+async fn get_username(pool: &sqlx::PgPool, user_id: Uuid) -> String {
+    sqlx::query_scalar::<_, String>("SELECT username FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "Unknown".to_string())
+}
+
 // ==================== SERVERS ====================
 
-/// POST /servers - Créer un serveur (user authentifié devient owner)
 pub async fn create_server(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Json(payload): Json<CreateServerPayload>,
 ) -> Result<(StatusCode, Json<Server>), StatusCode> {
     let pool = &state.db;
-let name = payload.name.trim();
-if name.is_empty() || name.len() > 100 {
-    return Err(StatusCode::BAD_REQUEST);
-}
-    // Validation nom
     let name = payload.name.trim().to_string();
     if name.is_empty() || name.len() > 100 {
         return Err(StatusCode::BAD_REQUEST);
@@ -68,7 +69,6 @@ if name.is_empty() || name.len() > 100 {
 
     let invite_code = generate_invite_code();
 
-    // Créer le serveur
     let server = sqlx::query_as::<_, Server>(
         "INSERT INTO servers (name, description, owner_id, invite_code) VALUES ($1, $2, $3, $4) RETURNING *",
     )
@@ -83,7 +83,6 @@ if name.is_empty() || name.len() > 100 {
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Ajouter le créateur comme owner
     let _ = sqlx::query(
         "INSERT INTO server_members (user_id, server_id, role) VALUES ($1, $2, 'owner')",
     )
@@ -92,7 +91,6 @@ if name.is_empty() || name.len() > 100 {
     .execute(pool)
     .await;
 
-    // Créer le channel #general automatiquement
     let _ = sqlx::query("INSERT INTO channels (server_id, name) VALUES ($1, 'general')")
         .bind(server.id)
         .execute(pool)
@@ -101,7 +99,6 @@ if name.is_empty() || name.len() > 100 {
     Ok((StatusCode::CREATED, Json(server)))
 }
 
-/// GET /servers - Lister les serveurs de l'utilisateur connecté
 pub async fn list_servers(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -123,13 +120,11 @@ pub async fn list_servers(
     Ok(Json(servers))
 }
 
-/// GET /servers/:id - Détails d'un serveur
 pub async fn get_server(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Server>, StatusCode> {
-    // Vérifier que le user est membre
     let role = get_member_role(&state.db, user_id, id).await;
     if role.is_none() {
         return Err(StatusCode::FORBIDDEN);
@@ -144,7 +139,6 @@ pub async fn get_server(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
-/// PUT /servers/:id - Mettre à jour (owner/admin)
 pub async fn update_server(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -158,7 +152,6 @@ pub async fn update_server(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    // Récupérer le serveur actuel
     let current = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = $1")
         .bind(id)
         .fetch_optional(&state.db)
@@ -182,7 +175,6 @@ pub async fn update_server(
     Ok(Json(server))
 }
 
-/// DELETE /servers/:id - Supprimer (owner only)
 pub async fn delete_server(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -210,7 +202,6 @@ pub async fn delete_server(
 
 // ==================== JOIN / LEAVE ====================
 
-/// POST /servers/:id/join - Rejoindre avec invite_code dans le body
 pub async fn join_server(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -219,7 +210,6 @@ pub async fn join_server(
 ) -> Result<StatusCode, StatusCode> {
     let pool = &state.db;
 
-    // Vérifier que le serveur existe et que le code est correct
     let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = $1")
         .bind(server_id)
         .fetch_optional(pool)
@@ -228,7 +218,6 @@ pub async fn join_server(
         .ok_or(StatusCode::NOT_FOUND)?;
 
     if server.invite_code.as_deref() != Some(&payload.invite_code) {
-        // Vérifier aussi dans la table invitations
         let invitation = sqlx::query_as::<_, Invitation>(
             "SELECT * FROM invitations WHERE server_id = $1 AND code = $2",
         )
@@ -242,7 +231,6 @@ pub async fn join_server(
             return Err(StatusCode::FORBIDDEN);
         }
 
-        // Incrémenter le compteur d'utilisation
         let _ = sqlx::query(
             "UPDATE invitations SET uses = uses + 1 WHERE server_id = $1 AND code = $2",
         )
@@ -252,13 +240,11 @@ pub async fn join_server(
         .await;
     }
 
-    // Vérifier si déjà membre
     let existing = get_member_role(pool, user_id, server_id).await;
     if existing.is_some() {
         return Err(StatusCode::CONFLICT);
     }
 
-    // Ajouter comme member
     sqlx::query("INSERT INTO server_members (user_id, server_id, role) VALUES ($1, $2, 'member')")
         .bind(user_id)
         .bind(server_id)
@@ -266,10 +252,22 @@ pub async fn join_server(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // ★ BROADCAST member_joined
+    let username = get_username(pool, user_id).await;
+    let ws_event = serde_json::json!({
+        "type": "member_joined",
+        "data": {
+            "server_id": server_id.to_string(),
+            "user_id": user_id.to_string(),
+            "username": username,
+            "role": "member"
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
     Ok(StatusCode::OK)
 }
 
-/// POST /servers/join-by-code - Rejoindre un serveur avec juste le code d'invitation
 pub async fn join_server_by_code(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -277,14 +275,12 @@ pub async fn join_server_by_code(
 ) -> Result<Json<Server>, StatusCode> {
     let pool = &state.db;
 
-    // Chercher le serveur par son invite_code
     let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE invite_code = $1")
         .bind(&payload.invite_code)
         .fetch_optional(pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Si pas trouvé dans servers, chercher dans la table invitations
     let server = match server {
         Some(s) => s,
         None => {
@@ -296,7 +292,6 @@ pub async fn join_server_by_code(
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
                     .ok_or(StatusCode::NOT_FOUND)?;
 
-            // Incrémenter le compteur
             let _ = sqlx::query("UPDATE invitations SET uses = uses + 1 WHERE code = $1")
                 .bind(&payload.invite_code)
                 .execute(pool)
@@ -310,13 +305,11 @@ pub async fn join_server_by_code(
         }
     };
 
-    // Vérifier si déjà membre
     let existing = get_member_role(pool, user_id, server.id).await;
     if existing.is_some() {
         return Err(StatusCode::CONFLICT);
     }
 
-    // Ajouter comme member
     sqlx::query("INSERT INTO server_members (user_id, server_id, role) VALUES ($1, $2, 'member')")
         .bind(user_id)
         .bind(server.id)
@@ -324,10 +317,22 @@ pub async fn join_server_by_code(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // ★ BROADCAST member_joined
+    let username = get_username(pool, user_id).await;
+    let ws_event = serde_json::json!({
+        "type": "member_joined",
+        "data": {
+            "server_id": server.id.to_string(),
+            "user_id": user_id.to_string(),
+            "username": username,
+            "role": "member"
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
     Ok(Json(server))
 }
 
-/// DELETE /servers/:id/leave - Quitter un serveur (owner interdit)
 pub async fn leave_server(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -337,7 +342,6 @@ pub async fn leave_server(
         .await
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    // Owner ne peut PAS quitter son serveur
     if role == "owner" {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -349,18 +353,26 @@ pub async fn leave_server(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // ★ BROADCAST member_left
+    let ws_event = serde_json::json!({
+        "type": "member_left",
+        "data": {
+            "server_id": server_id.to_string(),
+            "user_id": user_id.to_string()
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
     Ok(StatusCode::NO_CONTENT)
 }
 
 // ==================== MEMBERS ====================
 
-/// GET /servers/:id/members - Lister les membres
 pub async fn list_members(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(server_id): Path<Uuid>,
 ) -> Result<Json<Vec<MemberWithUser>>, StatusCode> {
-    // Vérifier que le user est membre
     let role = get_member_role(&state.db, user_id, server_id).await;
     if role.is_none() {
         return Err(StatusCode::FORBIDDEN);
@@ -384,7 +396,6 @@ pub async fn list_members(
     Ok(Json(members))
 }
 
-/// PUT /servers/:id/members/:userId - Changer le rôle d'un membre (owner only)
 pub async fn update_member_role(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -393,7 +404,6 @@ pub async fn update_member_role(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let pool = &state.db;
 
-    // Seul le owner peut changer les rôles
     let caller_role = get_member_role(pool, user_id, server_id)
         .await
         .ok_or(StatusCode::FORBIDDEN)?;
@@ -401,20 +411,16 @@ pub async fn update_member_role(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    // Vérifier que la cible est membre
     let target_role = get_member_role(pool, target_user_id, server_id)
         .await
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    // Valider le nouveau rôle
     let new_role = &payload.role;
-    if !["admin", "member"].contains(&new_role.as_str()) {
+    if !["admin", "member", "owner"].contains(&new_role.as_str()) {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Si on transfère la propriété
     if new_role == "owner" {
-        // L'ancien owner devient admin
         let _ = sqlx::query(
             "UPDATE server_members SET role = 'admin' WHERE user_id = $1 AND server_id = $2",
         )
@@ -423,7 +429,6 @@ pub async fn update_member_role(
         .execute(pool)
         .await;
 
-        // Le nouveau devient owner
         let _ = sqlx::query(
             "UPDATE server_members SET role = 'owner' WHERE user_id = $1 AND server_id = $2",
         )
@@ -432,12 +437,24 @@ pub async fn update_member_role(
         .execute(pool)
         .await;
 
-        // Mettre à jour owner_id du serveur
         let _ = sqlx::query("UPDATE servers SET owner_id = $1 WHERE id = $2")
             .bind(target_user_id)
             .bind(server_id)
             .execute(pool)
             .await;
+
+        // ★ BROADCAST member_role_updated (transfert ownership)
+        let ws_event = serde_json::json!({
+            "type": "member_role_updated",
+            "data": {
+                "server_id": server_id.to_string(),
+                "changes": [
+                    { "user_id": user_id.to_string(), "new_role": "admin" },
+                    { "user_id": target_user_id.to_string(), "new_role": "owner" }
+                ]
+            }
+        });
+        let _ = state.bus.send(ws_event.to_string());
 
         return Ok(Json(serde_json::json!({
             "message": "Ownership transferred",
@@ -445,7 +462,6 @@ pub async fn update_member_role(
         })));
     }
 
-    // On ne peut pas changer le rôle du owner
     if target_role == "owner" {
         return Err(StatusCode::FORBIDDEN);
     }
@@ -458,6 +474,18 @@ pub async fn update_member_role(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // ★ BROADCAST member_role_updated
+    let ws_event = serde_json::json!({
+        "type": "member_role_updated",
+        "data": {
+            "server_id": server_id.to_string(),
+            "changes": [
+                { "user_id": target_user_id.to_string(), "new_role": new_role }
+            ]
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
     Ok(Json(serde_json::json!({
         "message": "Role updated",
         "user_id": target_user_id.to_string(),
@@ -467,7 +495,6 @@ pub async fn update_member_role(
 
 // ==================== CHANNELS ====================
 
-/// POST /servers/:serverId/channels - Créer (admin/owner)
 pub async fn create_channel(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -493,16 +520,29 @@ pub async fn create_channel(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
+    // ★ BROADCAST channel_created
+    let ws_event = serde_json::json!({
+        "type": "channel_created",
+        "data": {
+            "server_id": server_id.to_string(),
+            "channel": {
+                "id": channel.id.to_string(),
+                "server_id": channel.server_id.to_string(),
+                "name": channel.name,
+                "created_at": channel.created_at.map(|dt| dt.to_string())
+            }
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
     Ok((StatusCode::CREATED, Json(channel)))
 }
 
-/// GET /servers/:serverId/channels - Lister
 pub async fn list_channels(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(server_id): Path<Uuid>,
 ) -> Result<Json<Vec<Channel>>, StatusCode> {
-    // Vérifier membership
     let role = get_member_role(&state.db, user_id, server_id).await;
     if role.is_none() {
         return Err(StatusCode::FORBIDDEN);
@@ -519,7 +559,6 @@ pub async fn list_channels(
     Ok(Json(channels))
 }
 
-/// GET /channels/:id - Détails d'un channel
 pub async fn get_channel(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -533,14 +572,12 @@ pub async fn get_channel(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
-/// PUT /channels/:id - Mettre à jour (admin/owner)
 pub async fn update_channel(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateChannelPayload>,
 ) -> Result<Json<Channel>, StatusCode> {
-    // Trouver le serveur du channel
     let channel = sqlx::query_as::<_, Channel>("SELECT * FROM channels WHERE id = $1")
         .bind(id)
         .fetch_optional(&state.db)
@@ -568,7 +605,6 @@ pub async fn update_channel(
     Ok(Json(updated))
 }
 
-/// DELETE /channels/:id - Supprimer (admin/owner)
 pub async fn delete_channel(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -581,7 +617,9 @@ pub async fn delete_channel(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let role = get_member_role(&state.db, user_id, channel.server_id)
+    let server_id = channel.server_id;
+
+    let role = get_member_role(&state.db, user_id, server_id)
         .await
         .ok_or(StatusCode::FORBIDDEN)?;
     if !is_admin_or_owner(&role) {
@@ -594,12 +632,21 @@ pub async fn delete_channel(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // ★ BROADCAST channel_deleted
+    let ws_event = serde_json::json!({
+        "type": "channel_deleted",
+        "data": {
+            "server_id": server_id.to_string(),
+            "channel_id": id.to_string()
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
     Ok(StatusCode::NO_CONTENT)
 }
 
 // ==================== INVITATIONS ====================
 
-/// POST /servers/:id/invitations - Créer une invitation (admin/owner)
 pub async fn create_invitation(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
@@ -639,14 +686,12 @@ pub async fn create_invitation(
 
 // ==================== MESSAGES (HTTP) ====================
 
-/// POST /channels/:id/messages - Envoyer un message
 pub async fn create_message_http(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(channel_id): Path<Uuid>,
     Json(payload): Json<CreateMessagePayload>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
-    // Récupérer le username
     let user =
         sqlx::query_as::<_, UserPublic>("SELECT id, username, email FROM users WHERE id = $1")
             .bind(user_id)
@@ -655,7 +700,6 @@ pub async fn create_message_http(
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    // Validation contenu message
     if payload.content.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -670,7 +714,6 @@ pub async fn create_message_http(
     .await
     .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Broadcast via WebSocket
     let ws_event = serde_json::json!({
         "type": "new_message",
         "data": {
@@ -693,11 +736,10 @@ pub async fn create_message_http(
     ))
 }
 
-/// GET /channels/:id/messages - Historique des messages
 #[derive(serde::Deserialize, Default)]
 pub struct MessagesQuery {
     pub limit: Option<i64>,
-    pub before: Option<i64>, // timestamp ms
+    pub before: Option<i64>,
 }
 
 pub async fn list_messages(
@@ -716,13 +758,11 @@ pub async fn list_messages(
     Json(messages)
 }
 
-/// DELETE /messages/:id - Supprimer un message
 pub async fn delete_message_http(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path(message_id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    // Vérifier que le message existe et appartient au user (ou admin)
     let msg = mongo::get_message_by_id(&state.messages, &message_id)
         .await
         .ok_or(StatusCode::NOT_FOUND)?;
@@ -730,7 +770,6 @@ pub async fn delete_message_http(
     let is_own_message = msg.user_id == user_id.to_string();
 
     if !is_own_message {
-        // Vérifier si admin/owner du serveur du channel
         let channel = sqlx::query_as::<_, Channel>("SELECT * FROM channels WHERE id = $1")
             .bind(Uuid::parse_str(&msg.channel_id).map_err(|_| StatusCode::BAD_REQUEST)?)
             .fetch_optional(&state.db)
