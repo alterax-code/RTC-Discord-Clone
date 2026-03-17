@@ -119,6 +119,17 @@ pub async fn delete_message_http(
     }
 
     if mongo::delete_message(&state.messages, &message_id).await {
+        // ★ BROADCAST message_deleted — tous les clients verront le message disparaître
+        let ws_event = serde_json::json!({
+            "type": "message_deleted",
+            "data": {
+                "message_id": message_id,
+                "channel_id": msg.channel_id,
+                "deleted_by": user_id.to_string()
+            }
+        });
+        let _ = state.bus.send(ws_event.to_string());
+
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(StatusCode::NOT_FOUND)

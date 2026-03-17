@@ -159,6 +159,16 @@ pub async fn delete_server(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if result.rows_affected() > 0 {
+        // ★ BROADCAST server_deleted — tous les clients WS connectés seront notifiés
+        let ws_event = serde_json::json!({
+            "type": "server_deleted",
+            "data": {
+                "server_id": id.to_string(),
+                "deleted_by": user_id.to_string()
+            }
+        });
+        let _ = state.bus.send(ws_event.to_string());
+
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(StatusCode::NOT_FOUND)

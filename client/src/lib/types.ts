@@ -121,6 +121,7 @@ export interface WSNewMessageEvent {
     username: string;
     content: string;
     created_at: string;
+    message_type?: string;
   };
 }
 
@@ -162,13 +163,90 @@ export interface WSMessageHistoryEvent {
   };
 }
 
+// ★ NOUVEAUX TYPES AJOUTÉS
+
+export interface WSServerDeletedEvent {
+  type: 'server_deleted';
+  data: {
+    server_id: string;
+    deleted_by: string;
+  };
+}
+
+export interface WSChannelCreatedEvent {
+  type: 'channel_created';
+  data: {
+    server_id: string;
+    channel: { id: string; name: string; server_id: string };
+  };
+}
+
+export interface WSChannelDeletedEvent {
+  type: 'channel_deleted';
+  data: {
+    server_id: string;
+    channel_id: string;
+    deleted_by?: string;
+  };
+}
+
+export interface WSMemberJoinedEvent {
+  type: 'member_joined';
+  data: {
+    server_id: string;
+    user_id: string;
+    username: string;
+    role: string;
+  };
+}
+
+export interface WSMemberLeftEvent {
+  type: 'member_left';
+  data: {
+    server_id: string;
+    user_id: string;
+  };
+}
+
+export interface WSMemberRoleUpdatedEvent {
+  type: 'member_role_updated';
+  data: {
+    server_id: string;
+    changes: Array<{ user_id: string; new_role: string }>;
+  };
+}
+
+export interface WSMessageDeletedEvent {
+  type: 'message_deleted';
+  data: {
+    message_id: string;
+    channel_id: string;
+    deleted_by: string;
+  };
+}
+
+export interface WSErrorEvent {
+  type: 'error';
+  data: {
+    message: string;
+  };
+}
+
 export type WSEvent =
   | WSNewMessageEvent
   | WSUserOnlineEvent
   | WSUserOfflineEvent
   | WSUserTypingEvent
   | WSOnlineUsersEvent
-  | WSMessageHistoryEvent;
+  | WSMessageHistoryEvent
+  | WSServerDeletedEvent
+  | WSChannelCreatedEvent
+  | WSChannelDeletedEvent
+  | WSMemberJoinedEvent
+  | WSMemberLeftEvent
+  | WSMemberRoleUpdatedEvent
+  | WSMessageDeletedEvent
+  | WSErrorEvent;
 
 // ============================================
 // API ERROR TYPES

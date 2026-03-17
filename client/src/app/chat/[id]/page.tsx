@@ -8,7 +8,7 @@ import MembersList from "@/components/MembersList";
 import MessageList from "@/components/MessageList";
 import ChatInput from "@/components/ChatInput";
 import { serversApi, channelsApi, messagesApi } from "@/lib/api";
-import { isAuthenticated, getCurrentUser } from "@/lib/auth";
+import { isAuthenticated, getCurrentUser, getAuthToken } from "@/lib/auth";
 import wsClient from "@/lib/websocket";
 import { Channel, WSEvent } from "@/lib/types";
 
@@ -126,9 +126,30 @@ export default function ChatPage({
 
     const loadData = async () => {
       setLoading(true);
+
+      // ★ FIX: Vérifier l'accès au serveur avec un fetch brut
+      // PAS via serversApi.getServer() qui throw une ApiException
+      // que Next.js dev mode intercepte avant le catch
+      const token = getAuthToken();
       try {
-        const [server, chans, mems] = await Promise.all([
-          serversApi.getServer(serverId),
+        const checkRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/servers/${serverId}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        );
+        if (!checkRes.ok) {
+          // 403 = pas membre, 404 = serveur inexistant, 401 = pas connecté
+          window.location.href = "/servers";
+          return;
+        }
+        var server = await checkRes.json();
+      } catch {
+        // Erreur réseau → redirect aussi
+        window.location.href = "/servers";
+        return;
+      }
+
+      try {
+        const [chans, mems] = await Promise.all([
           channelsApi.getChannels(serverId),
           serversApi.getMembers(serverId),
         ]);
@@ -149,7 +170,7 @@ export default function ChatPage({
           setSelectedChannel(chans[0].id);
         }
       } catch (e: any) {
-        console.error("Erreur chargement:", e);
+        console.error("Erreur chargement données:", e);
       } finally {
         setLoading(false);
       }
@@ -382,6 +403,24 @@ export default function ChatPage({
           typingTimersRef.current.set(user_id, newTimer);
           break;
         }
+
+        // ★ Serveur supprimé → redirect instantané pour tous les membres
+        case "server_deleted": {
+          if ((event as any).data?.server_id === serverId) {
+            window.location.href = "/servers";
+          }
+          break;
+        }
+
+        // ★ Message supprimé par un admin → retirer de l'affichage
+        case "message_deleted": {
+          const md = (event as any).data || {};
+          if (md.channel_id === selectedChannelRef.current && md.message_id) {
+            setMessages((prev) => prev.filter((m) => m.id !== md.message_id));
+            messageIdsRef.current.delete(md.message_id);
+          }
+          break;
+        }
       }
     };
 
@@ -511,11 +550,17 @@ export default function ChatPage({
       return;
     try {
       await serversApi.deleteServer(serverId);
-      router.push("/servers");
+      window.location.href = "/servers";
     } catch (e: any) {
-      alert("Erreur: " + (e?.message || "Impossible de supprimer"));
+      if (e?.code === "HTTP_404") {
+        window.location.href = "/servers";
+      } else if (e?.code === "HTTP_403") {
+        alert("Vous n'avez pas la permission de supprimer ce serveur.");
+      } else {
+        alert("Erreur: " + (e?.message || "Impossible de supprimer"));
+      }
     }
-  }, [serverId, router]);
+  }, [serverId]);
 
   const handleLeaveServer = useCallback(async () => {
     // ★ Bloquer l'owner côté frontend avant même l'appel API
