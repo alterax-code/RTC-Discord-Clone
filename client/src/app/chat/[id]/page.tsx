@@ -306,6 +306,23 @@ export default function ChatPage({
           });
           break;
         }
+        
+        // ★ Membre banni — retirer de la liste + rediriger si c'est moi
+        case "member_banned": {
+          const { server_id, user_id, reason } = event.data || {};
+          if (server_id !== serverId) break;
+          setMembers((prev) => prev.filter((m) => m.id !== user_id));
+          setOnlineUserIds((prev) => {
+            const s = new Set(prev);
+            s.delete(user_id);
+            return s;
+          });
+          if (user_id === currentUser?.id) {
+            alert(`Tu as été banni de ce serveur.${reason ? ` Raison : ${reason}` : ""}`);
+            router.push("/servers");
+          }
+          break;
+        }
 
         // ★ Nouveau channel créé — mise à jour temps réel pour tous les membres
         case "channel_created": {
