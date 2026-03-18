@@ -265,4 +265,50 @@ pub async fn ban_member(
 
     Ok(StatusCode::NO_CONTENT)
 }
+
+pub async fn list_bans(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path(server_id): Path<Uuid>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    let pool = &state.db;
+
+    let caller_role = get_member_role(pool, user_id, server_id)
+        .await
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !super::is_admin_or_owner(&caller_role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct BanRow {
+        user_id: uuid::Uuid,
+        username: String,
+        reason: Option<String>,
+        expires_at: Option<chrono::NaiveDateTime>,
+        created_at: Option<chrono::NaiveDateTime>,
+    }
+
+    let bans = sqlx::query_as::<_, BanRow>(
+        "SELECT sb.user_id, sb.reason, sb.expires_at, sb.created_at, u.username
+         FROM server_bans sb
+         INNER JOIN users u ON sb.user_id = u.id
+         WHERE sb.server_id = $1
+         ORDER BY sb.created_at DESC",
+    )
+    .bind(server_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let result: Vec<serde_json::Value> = bans.iter().map(|b| serde_json::json!({
+        "user_id": b.user_id.to_string(),
+        "username": b.username,
+        "reason": b.reason,
+        "expires_at": b.expires_at.map(|dt| dt.to_string()),
+        "created_at": b.created_at.map(|dt| dt.to_string()),
+    })).collect();
+
+    Ok(Json(result))
+}
  
