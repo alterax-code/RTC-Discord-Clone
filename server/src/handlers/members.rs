@@ -190,4 +190,11 @@ pub async fn kick_member(
  
     Ok(StatusCode::NO_CONTENT)
 }
+// ==================== BAN ====================
+
+#[derive(serde::Deserialize)]
+pub struct BanPayload {
+    pub reason: Option<String>,
+    pub duration_hours: Option<i64>,
+}
  
