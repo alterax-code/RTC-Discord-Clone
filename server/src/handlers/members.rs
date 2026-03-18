@@ -311,4 +311,30 @@ pub async fn list_bans(
 
     Ok(Json(result))
 }
+
+pub async fn unban_member(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path((server_id, target_user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, StatusCode> {
+    let pool = &state.db;
+
+    let caller_role = get_member_role(pool, user_id, server_id)
+        .await
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !super::is_admin_or_owner(&caller_role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    sqlx::query(
+        "DELETE FROM server_bans WHERE server_id = $1 AND user_id = $2",
+    )
+    .bind(server_id)
+    .bind(target_user_id)
+    .execute(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
  
