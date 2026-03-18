@@ -141,6 +141,7 @@ pub async fn update_member_role(
         "new_role": new_role
     })))
 }
+
 // ==================== KICK ====================
  
 pub async fn kick_member(
@@ -337,4 +338,3 @@ pub async fn unban_member(
 
     Ok(StatusCode::NO_CONTENT)
 }
- 

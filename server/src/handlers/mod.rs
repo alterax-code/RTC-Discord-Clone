@@ -8,7 +8,9 @@
 //! - messages  : envoi, historique, suppression
 //! - invitations : création d'invitations
 //! - health    : health check
+
 pub use members::{ban_member, kick_member, list_bans, list_members, unban_member, update_member_role};
+
 mod channels;
 mod health;
 mod invitations;
