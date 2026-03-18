@@ -94,6 +94,8 @@ async fn main() {
         // Auth
         .route("/auth/logout", post(auth::logout_handler))
         .route("/me", get(auth::me_handler))
+        .route("/servers/:server_id/members/:user_id/kick",
+    axum::routing::delete(handlers::kick_member))
         // Servers
         .route("/servers", post(handlers::create_server))
         .route("/servers", get(handlers::list_servers))
