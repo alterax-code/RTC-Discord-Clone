@@ -163,6 +163,33 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                                     }
                                 }
                             }
+                            Some("kick_member") => {
+                                let server_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("server_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+                                let target_user_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("user_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+                                let reason = event
+                                    .get("data")
+                                    .and_then(|d| d.get("reason"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+
+                                let kick_event = serde_json::json!({
+                                    "type": "member_kicked",
+                                    "data": {
+                                        "server_id": server_id,
+                                        "user_id": target_user_id,
+                                        "reason": reason
+                                    }
+                                });
+                                let _ = bus.send(kick_event.to_string());
+                            }
                             Some("typing") | Some("user_typing") => {
                                 let channel_id = event
                                     .get("data")
