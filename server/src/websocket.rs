@@ -106,9 +106,19 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
 
     // Task : recevoir les messages broadcast et les envoyer au client
     let mut send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            if sender.send(WsMessage::Text(msg.into())).await.is_err() {
-                break;
+        loop {
+            match rx.recv().await {
+                Ok(msg) => {
+                    if sender.send(WsMessage::Text(msg.into())).await.is_err() {
+                        break; // Client déconnecté
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    // ★ FIX: Ne PAS crash — juste skip les messages manqués
+                    eprintln!("[WS] ⚠️ Receiver lagged, missed {n} messages — continuing");
+                    continue;
+                }
+                Err(_) => break, // Channel fermé
             }
         }
     });
@@ -162,6 +172,33 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                                         let _ = bus.send(broadcast_event.to_string());
                                     }
                                 }
+                            }
+                            Some("kick_member") => {
+                                let server_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("server_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+                                let target_user_id = event
+                                    .get("data")
+                                    .and_then(|d| d.get("user_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+                                let reason = event
+                                    .get("data")
+                                    .and_then(|d| d.get("reason"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
+
+                                let kick_event = serde_json::json!({
+                                    "type": "member_kicked",
+                                    "data": {
+                                        "server_id": server_id,
+                                        "user_id": target_user_id,
+                                        "reason": reason
+                                    }
+                                });
+                                let _ = bus.send(kick_event.to_string());
                             }
                             Some("typing") | Some("user_typing") => {
                                 let channel_id = event

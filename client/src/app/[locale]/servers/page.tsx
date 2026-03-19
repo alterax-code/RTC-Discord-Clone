@@ -1,18 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import ServerCard from '@/components/ServerCard';
 import CreateServerModal from '@/components/CreateServerModal';
 import JoinServerModal from '@/components/JoinServerModal';
 import EmptyServers from '@/components/EmptyServers';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { serversApi } from '@/lib/api';
-import { isAuthenticated, getCurrentUser } from '@/lib/auth';
+import { isAuthenticated, getCurrentUser, logout } from '@/lib/auth';
 import { Server } from '@/lib/types';
 
 export default function ServersPage() {
   const router = useRouter();
+  const { locale } = useParams();
+  const t = useTranslations();
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -22,10 +25,9 @@ export default function ServersPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.push('/login');
+      router.push(`/${locale}/login`);
       return;
     }
-    // ★ Lire le user depuis localStorage (client-side uniquement)
     const user = getCurrentUser();
     if (user?.username) setUsername(user.username);
     loadServers();
@@ -38,19 +40,18 @@ export default function ServersPage() {
       const data = await serversApi.getServers();
       setServers(data);
     } catch (e: any) {
-      // ★ Retry automatique (max 2 tentatives) — évite le "Failed to fetch" au premier chargement
       if (attempt < 3) {
         await new Promise(res => setTimeout(res, 600 * attempt));
         return loadServers(attempt + 1);
       }
-      setError(e.message || 'Erreur lors du chargement');
+      setError(e.message || t('common.error'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleServerClick = (serverId: string) => {
-    router.push(`/chat/${serverId}`);
+    router.push(`/${locale}/chat/${serverId}`);
   };
 
   const handleCreateServer = async (name: string, description: string) => {
@@ -59,7 +60,7 @@ export default function ServersPage() {
       setShowCreateModal(false);
       loadServers();
     } catch (e: any) {
-      setError(e.message || 'Erreur lors de la création');
+      setError(e.message || t('common.error'));
     }
   };
 
@@ -67,40 +68,57 @@ export default function ServersPage() {
     try {
       setShowJoinModal(false);
       const server = await serversApi.joinServerByCode(inviteCode);
-      // Recharger la liste des serveurs
       const updated = await serversApi.getServers();
       setServers(updated);
-      // Naviguer vers le serveur rejoint
       if (server && server.id) {
-        router.push(`/chat/${server.id}`);
+        router.push(`/${locale}/chat/${server.id}`);
       }
     } catch (e: any) {
-      if (e?.message?.includes('409') || e?.code === 'HTTP_409') {
-        setError('Vous êtes déjà membre de ce serveur');
-      } else if (e?.message?.includes('404') || e?.code === 'HTTP_404') {
-        setError('Code d\'invitation invalide');
-      } else {
-        setError(e.message || 'Erreur lors de la connexion au serveur');
-      }
+      setError(e.message || t('common.error'));
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   };
 
   return (
     <div className="servers-page">
       <header className="servers-header">
-        <h1>Mes serveurs {username && <span style={{ fontSize: '0.9rem', color: '#8e9297', fontWeight: 400 }}>— {username}</span>}</h1>
+        <h1>{t('servers.title')} {username && <span style={{ fontSize: '0.9rem', color: '#8e9297', fontWeight: 400 }}>— {username}</span>}</h1>
         <div className="servers-actions">
-          <button
-            className="btn-primary-red"
-            onClick={() => setShowCreateModal(true)}
-          >
-            + Créer un serveur
+          <button className="btn-primary-red" onClick={() => setShowCreateModal(true)}>
+            + {t('servers.create')}
+          </button>
+          <button className="btn-secondary" onClick={() => setShowJoinModal(true)}>
+            {t('servers.join')} via code
           </button>
           <button
-            className="btn-secondary"
-            onClick={() => setShowJoinModal(true)}
+            onClick={handleLogout}
+            title="Se déconnecter"
+            style={{
+              background: '#2a1010',
+              color: '#f87171',
+              border: '1px solid #7f1d1d',
+              padding: '10px 22px',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '1rem',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#dc2626';
+              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.borderColor = '#dc2626';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = '#2a1010';
+              e.currentTarget.style.color = '#f87171';
+              e.currentTarget.style.borderColor = '#7f1d1d';
+            }}
           >
-            Rejoindre via code
+            ⏻ Déconnexion
           </button>
         </div>
       </header>

@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { authApi } from '@/lib/api';
 
 export default function LoginForm() {
   const router = useRouter();
+  const { locale } = useParams();
+  const t = useTranslations();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,22 +18,16 @@ export default function LoginForm() {
     setError('');
 
     if (!formData.email || !formData.password) {
-      setError('Tous les champs sont requis');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+      setError(t('common.error'));
       return;
     }
 
     setLoading(true);
-
     try {
       await authApi.login(formData);
-      router.push('/servers');
+      router.push(`/${locale}/servers`);
     } catch (err: any) {
-      setError(err.message || 'Identifiants invalides');
+      setError(err.message || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -39,7 +36,7 @@ export default function LoginForm() {
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
       <div className="form-group">
-        <label htmlFor="login-email">Email</label>
+        <label htmlFor="login-email">{t('auth.email')}</label>
         <input
           id="login-email"
           type="email"
@@ -52,7 +49,7 @@ export default function LoginForm() {
       </div>
 
       <div className="form-group">
-        <label htmlFor="login-password">Mot de passe</label>
+        <label htmlFor="login-password">{t('auth.password')}</label>
         <input
           id="login-password"
           type="password"
@@ -71,7 +68,7 @@ export default function LoginForm() {
         className="btn-primary-red btn-full-width"
         disabled={loading}
       >
-        {loading ? 'Connexion...' : 'Se connecter'}
+        {loading ? t('common.loading') : t('auth.submit_login')}
       </button>
     </form>
   );

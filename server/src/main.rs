@@ -130,7 +130,10 @@ async fn main() {
             post(handlers::create_message_http),
         )
         .route("/channels/{id}/messages", get(handlers::list_messages))
-        .route("/messages/{id}", delete(handlers::delete_message_http))
+        .route("/messages/{id}", 
+            delete(handlers::delete_message_http)
+            .put(handlers::edit_message_http)
+)
         // Middleware auth
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
@@ -149,7 +152,7 @@ async fn main() {
         .layer(cors)
         .with_state(state);
 
-    let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
+    let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "3001".to_string());
     let addr = format!("0.0.0.0:{port}");
     println!("🚀 RTC Server running on http://{addr}");
 
