@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import React, { use, useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import ServersBar from '@/components/ServersBar';
-import ChannelsList from '@/components/ChannelsList';
-import MembersList from '@/components/MembersList';
-import MessageList from '@/components/MessageList';
-import ChatInput from '@/components/ChatInput';
-import { serversApi, channelsApi, messagesApi } from '@/lib/api';
+import React, { use, useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import ServersBar from "@/components/ServersBar";
+import ChannelsList from "@/components/ChannelsList";
+import MembersList from "@/components/MembersList";
+import MessageList from "@/components/MessageList";
+import ChatInput from "@/components/ChatInput";
+import { serversApi, channelsApi, messagesApi } from "@/lib/api";
 import { isAuthenticated, getCurrentUser, getAuthToken } from "@/lib/auth";
 import wsClient from "@/lib/websocket";
 import { Channel, WSEvent } from "@/lib/types";
@@ -39,14 +39,6 @@ function extractId(raw: any): string {
     if (raw.toString && raw.toString() !== "[object Object]")
       return raw.toString();
   }
-
-  if (!raw) return "";
-  if (typeof raw === "string") return raw;
-  if (typeof raw === "object") {
-    if (raw.$oid) return raw.$oid;
-    if (raw.toString && raw.toString() !== "[object Object]")
-      return raw.toString();
-  }
   return "";
 }
 
@@ -66,21 +58,6 @@ function formatTime(dateStr: any): string {
       });
     }
     const d = new Date(dateStr);
-    if (!dateStr) return "";
-    if (typeof dateStr === "object" && dateStr.$date) {
-      const d = dateStr.$date;
-      if (typeof d === "object" && d.$numberLong)
-        return new Date(parseInt(d.$numberLong)).toLocaleTimeString("fr-FR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      return new Date(d).toLocaleTimeString("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-    const d = new Date(dateStr);
-
     return isNaN(d.getTime())
       ? ""
       : d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -105,19 +82,16 @@ export default function ChatPage({
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [serverName, setServerName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const oldestMessageIdRef = useRef<string | null>(null);
- 
   const [sendError, setSendError] = useState("");
   const [showOwnerLeaveModal, setShowOwnerLeaveModal] = useState(false);
   const pendingChannelSelectRef = useRef<string | null>(null); // ID du channel à auto-sélectionner après création
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(
     new Map(),
   );
-
   const [showSettings, setShowSettings] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -330,7 +304,7 @@ export default function ChatPage({
           break;
 
         // ★ Nouveau membre qui rejoint le serveur — mise à jour temps réel
-        case 'member_joined': {
+        case "member_joined": {
           const { server_id, user_id, username, role } = event.data || {};
           if (server_id !== serverId) break;
           setMembers((prev) => {
@@ -342,7 +316,7 @@ export default function ChatPage({
         }
 
         // ★ Membre qui quitte le serveur — mise à jour temps réel
-        case 'member_left': {
+        case "member_left": {
           const { server_id, user_id } = event.data || {};
           if (server_id !== serverId) break;
           setMembers((prev) => prev.filter((m) => m.id !== user_id));
@@ -353,30 +327,14 @@ export default function ChatPage({
           });
           break;
         }
-        
-        // ★ Membre banni — retirer de la liste + rediriger si c'est moi
-        case "member_banned": {
-          const { server_id, user_id, reason } = event.data || {};
-          if (server_id !== serverId) break;
-          setMembers((prev) => prev.filter((m) => m.id !== user_id));
-          setOnlineUserIds((prev) => {
-            const s = new Set(prev);
-            s.delete(user_id);
-            return s;
-          });
-          if (user_id === currentUser?.id) {
-            alert(`Tu as été banni de ce serveur.${reason ? ` Raison : ${reason}` : ""}`);
-            router.push("/servers");
-          }
-          break;
-        }
 
         // ★ Nouveau channel créé — mise à jour temps réel pour tous les membres
         case "channel_created": {
           const { server_id, channel } = event.data || {};
           if (server_id !== serverId) break;
           setChannels((prev) => {
-            if (prev.find((c) => c.id === channel.id)) return [...prev, channel];
+            if (prev.find((c) => c.id === channel.id)) return prev;
+            return [...prev, channel];
           });
           // ★ Si c'est un channel qu'on vient de créer, l'auto-sélectionner
           if (pendingChannelSelectRef.current === channel.id) {
@@ -512,26 +470,31 @@ export default function ChatPage({
     }
   }, [selectedChannel, loadingMoreMessages, hasMoreMessages]);
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!selectedChannel) return;
-    // ── 5. Bloquer les messages vides ou espaces seuls ──
-    if (!content.trim()) return;
-    try {
-      // HTTP POST (pas WS) pour éviter le triple envoi
-      await messagesApi.sendMessage(selectedChannel, { content: content.trim() });
-    } catch (e: any) {
-      // ── 3. Feedback visuel si envoi échoue ──
-      setSendError("Impossible d'envoyer le message. Vérifiez votre connexion.");
-      setTimeout(() => setSendError(''), 4000);
-    }
-  }, [selectedChannel]);
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      if (!selectedChannel) return;
+      // ── 5. Bloquer les messages vides ou espaces seuls ──
+      if (!content.trim()) return;
+      try {
+        // HTTP POST (pas WS) pour éviter le triple envoi
+        await messagesApi.sendMessage(selectedChannel, {
+          content: content.trim(),
+        });
+      } catch (e: any) {
+        // ── 3. Feedback visuel si envoi échoue ──
+        setSendError(
+          "Impossible d'envoyer le message. Vérifiez votre connexion.",
+        );
+        setTimeout(() => setSendError(""), 4000);
+      }
+    },
+    [selectedChannel],
+  );
 
   const handleCreateChannel = useCallback(
     async (name: string) => {
       try {
         const newChannel = await channelsApi.createChannel(serverId, { name });
-        // ★ Ne pas ajouter localement — le WS channel_created va broadcaster pour tout le monde
-        // On stocke l'ID pour auto-sélectionner quand le WS arrive
         pendingChannelSelectRef.current = newChannel.id;
         // ★ Fallback local — si le WS est lent ou déconnecté
         setChannels((prev) => {
@@ -589,7 +552,6 @@ export default function ChatPage({
       await serversApi.deleteServer(serverId);
       window.location.href = "/servers";
     } catch (e: any) {
-      alert('Erreur: ' + (e?.message || 'Impossible de supprimer'));
       if (e?.code === "HTTP_404") {
         window.location.href = "/servers";
       } else if (e?.code === "HTTP_403") {
@@ -612,7 +574,7 @@ export default function ChatPage({
     if (!confirm("Quitter ce serveur ?")) return;
     try {
       await serversApi.leaveServer(serverId);
-      router.push('/servers');
+      router.push("/servers");
     } catch (e: any) {
       // 403 = owner côté backend (double sécurité)
       if (e?.status === 403) {
@@ -692,11 +654,6 @@ export default function ChatPage({
           className="mobile-sidebar-overlay"
           onClick={() => setShowMobileSidebar(false)}
           style={{
-            position: "fixed",
-            inset: 0,
-            left: "70px",
-            background: "rgba(0,0,0,0.55)",
-            zIndex: 199,
             position: "fixed",
             inset: 0,
             left: "70px",
@@ -1091,7 +1048,7 @@ export default function ChatPage({
               ⚠️ {sendError}
             </div>
           )}
-          
+
           {selectedChannel && (
             <MessageList
               messages={messages}
@@ -1253,8 +1210,7 @@ export default function ChatPage({
             </button>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </React.Fragment>
   );
 }
