@@ -1,0 +1,46 @@
+{
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "submit_login": "Sign in",
+    "submit_register": "Sign up"
+  },
+  "servers": {
+    "title": "My servers",
+    "create": "Create a server",
+    "join": "Join",
+    "no_servers": "No servers"
+  },
+  "chat": {
+    "invite": "Invite",
+    "leave": "Leave server",
+    "delete_server": "Delete server",
+    "no_channel": "No channels available",
+    "loading": "Loading...",
+    "send_placeholder": "Send a message"
+  },
+  "members": {
+    "title": "MEMBERS",
+    "online": "ONLINE",
+    "offline": "OFFLINE",
+    "kick": "Kick",
+    "kick_confirm": "Kick {username} from the server?",
+    "ban": "Ban",
+    "promote_admin": "Promote to Admin",
+    "demote_member": "Demote to Member",
+    "transfer_owner": "Transfer ownership",
+    "transfer_confirm": "Transfer ownership to {username}?"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "copy": "Copy",
+    "copied": "✓ Copied!",
+    "error": "Error",
+    "loading": "Loading..."
+  }
+}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import ServerCard from '@/components/ServerCard';
 import CreateServerModal from '@/components/CreateServerModal';
 import JoinServerModal from '@/components/JoinServerModal';
@@ -13,6 +14,8 @@ import { Server } from '@/lib/types';
 
 export default function ServersPage() {
   const router = useRouter();
+  const { locale } = useParams();
+  const t = useTranslations();
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -22,7 +25,7 @@ export default function ServersPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.push('/login');
+      router.push(`/${locale}/login`);
       return;
     }
     const user = getCurrentUser();
@@ -41,14 +44,14 @@ export default function ServersPage() {
         await new Promise(res => setTimeout(res, 600 * attempt));
         return loadServers(attempt + 1);
       }
-      setError(e.message || 'Erreur lors du chargement');
+      setError(e.message || t('common.error'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleServerClick = (serverId: string) => {
-    router.push(`/chat/${serverId}`);
+    router.push(`/${locale}/chat/${serverId}`);
   };
 
   const handleCreateServer = async (name: string, description: string) => {
@@ -57,7 +60,7 @@ export default function ServersPage() {
       setShowCreateModal(false);
       loadServers();
     } catch (e: any) {
-      setError(e.message || 'Erreur lors de la création');
+      setError(e.message || t('common.error'));
     }
   };
 
@@ -68,16 +71,10 @@ export default function ServersPage() {
       const updated = await serversApi.getServers();
       setServers(updated);
       if (server && server.id) {
-        router.push(`/chat/${server.id}`);
+        router.push(`/${locale}/chat/${server.id}`);
       }
     } catch (e: any) {
-      if (e?.message?.includes('409') || e?.code === 'HTTP_409') {
-        setError('Vous êtes déjà membre de ce serveur');
-      } else if (e?.message?.includes('404') || e?.code === 'HTTP_404') {
-        setError('Code d\'invitation invalide');
-      } else {
-        setError(e.message || 'Erreur lors de la connexion au serveur');
-      }
+      setError(e.message || t('common.error'));
     }
   };
 
@@ -89,19 +86,13 @@ export default function ServersPage() {
   return (
     <div className="servers-page">
       <header className="servers-header">
-        <h1>Mes serveurs {username && <span style={{ fontSize: '0.9rem', color: '#8e9297', fontWeight: 400 }}>— {username}</span>}</h1>
+        <h1>{t('servers.title')} {username && <span style={{ fontSize: '0.9rem', color: '#8e9297', fontWeight: 400 }}>— {username}</span>}</h1>
         <div className="servers-actions">
-          <button
-            className="btn-primary-red"
-            onClick={() => setShowCreateModal(true)}
-          >
-            + Créer un serveur
+          <button className="btn-primary-red" onClick={() => setShowCreateModal(true)}>
+            + {t('servers.create')}
           </button>
-          <button
-            className="btn-secondary"
-            onClick={() => setShowJoinModal(true)}
-          >
-            Rejoindre via code
+          <button className="btn-secondary" onClick={() => setShowJoinModal(true)}>
+            {t('servers.join')} via code
           </button>
           <button
             onClick={handleLogout}

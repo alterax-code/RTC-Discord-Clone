@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { authApi } from '@/lib/api';
 
 export default function RegisterForm() {
   const router = useRouter();
+  const { locale } = useParams();
+  const t = useTranslations();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -20,36 +23,25 @@ export default function RegisterForm() {
     setError('');
 
     if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError('Tous les champs sont requis');
-      return;
-    }
-
-    if (formData.username.length < 3) {
-      setError("Le nom d'utilisateur doit contenir au moins 3 caractères");
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+      setError(t('common.error'));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
+      setError(t('common.error'));
       return;
     }
 
     setLoading(true);
-
     try {
       await authApi.register({
         username: formData.username,
         email: formData.email,
         password: formData.password,
       });
-      router.push('/servers');
+      router.push(`/${locale}/servers`);
     } catch (err: any) {
-      setError(err.message || "Erreur lors de l'inscription");
+      setError(err.message || t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -58,7 +50,7 @@ export default function RegisterForm() {
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
       <div className="form-group">
-        <label htmlFor="register-username">Nom d&apos;utilisateur</label>
+        <label htmlFor="register-username">Username</label>
         <input
           id="register-username"
           type="text"
@@ -73,7 +65,7 @@ export default function RegisterForm() {
       </div>
 
       <div className="form-group">
-        <label htmlFor="register-email">Email</label>
+        <label htmlFor="register-email">{t('auth.email')}</label>
         <input
           id="register-email"
           type="email"
@@ -86,7 +78,7 @@ export default function RegisterForm() {
       </div>
 
       <div className="form-group">
-        <label htmlFor="register-password">Mot de passe</label>
+        <label htmlFor="register-password">{t('auth.password')}</label>
         <input
           id="register-password"
           type="password"
@@ -100,7 +92,7 @@ export default function RegisterForm() {
       </div>
 
       <div className="form-group">
-        <label htmlFor="register-confirm">Confirmer le mot de passe</label>
+        <label htmlFor="register-confirm">{t('auth.password')}</label>
         <input
           id="register-confirm"
           type="password"
@@ -120,14 +112,8 @@ export default function RegisterForm() {
         className="btn-primary-red btn-full-width"
         disabled={loading}
       >
-        {loading ? 'Inscription...' : 'Créer un compte'}
+        {loading ? t('common.loading') : t('auth.submit_register')}
       </button>
-
-      <div className="form-footer">
-        <p className="text-small">
-          En créant un compte, vous acceptez nos conditions d&apos;utilisation
-        </p>
-      </div>
     </form>
   );
 }

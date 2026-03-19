@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface Member {
   id: string;
@@ -45,7 +46,6 @@ function TypingDots() {
   );
 }
 
-// ── Menu ⋯ pour un membre ──
 function MemberMenu({
   member, currentUserRole, onUpdateRole,
 }: {
@@ -55,6 +55,7 @@ function MemberMenu({
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations();
 
   useEffect(() => {
     if (!open) return;
@@ -82,7 +83,6 @@ function MemberMenu({
     <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        title="Options"
         style={{
           background: 'none', border: 'none', color: '#8e9297',
           cursor: 'pointer', fontSize: '18px', padding: '0 4px',
@@ -121,7 +121,7 @@ function MemberMenu({
               onMouseEnter={e => (e.currentTarget.style.background = '#5865f2', e.currentTarget.style.color = '#fff')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none', e.currentTarget.style.color = '#99aab5')}
             >
-              🛡️ Promouvoir Admin
+              🛡️ {t('members.promote_admin')}
             </button>
           )}
           {canDemoteToMember && (
@@ -131,7 +131,7 @@ function MemberMenu({
               onMouseEnter={e => (e.currentTarget.style.background = '#5865f2', e.currentTarget.style.color = '#fff')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none', e.currentTarget.style.color = '#dcddde')}
             >
-              👤 Rétrograder Membre
+              👤 {t('members.demote_member')}
             </button>
           )}
           {canTransfer && (
@@ -140,14 +140,14 @@ function MemberMenu({
               <button
                 onClick={() => {
                   setOpen(false);
-                  if (confirm(`Transférer la propriété à ${member.username} ?`))
+                  if (confirm(t('members.transfer_confirm', { username: member.username })))
                     onUpdateRole?.(member.id, 'owner');
                 }}
                 style={{ ...itemStyle, color: '#f0b132' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f0b13220')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
-                👑 Transférer ownership
+                👑 {t('members.transfer_owner')}
               </button>
             </>
           )}
@@ -182,6 +182,7 @@ function MemberMenu({
 export default function MembersList({
   members, typingUserIds, currentUserId, currentUserRole, onUpdateRole,
 }: MembersListProps) {
+  const t = useTranslations();
   const typing = typingUserIds || new Set<string>();
   const onlineMembers = members.filter(m => m.online);
   const offlineMembers = members.filter(m => !m.online);
@@ -192,31 +193,18 @@ export default function MembersList({
     const canManageThis = currentUserRole === 'owner' && !isMe && member.role !== 'owner';
 
     return (
-      <div
-        key={member.id}
-        className="member-item"
-        style={{ position: 'relative' }}
-      >
+      <div key={member.id} className="member-item" style={{ position: 'relative' }}>
         <div className={`member-status ${member.online ? 'online' : 'offline'}`} />
         <span
           className={`member-name ${!member.online ? 'offline-name' : ''}`}
-          style={{
-            color: member.online ? roleColors[member.role] : undefined,
-            display: 'flex', alignItems: 'center', flex: 1, minWidth: 0,
-          }}
+          style={{ color: member.online ? roleColors[member.role] : undefined, display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}
         >
           {roleIcons[member.role]} {member.username}
-
           {isTyping && <TypingDots />}
         </span>
-
         {canManageThis && (
           <span className="member-actions">
-            <MemberMenu
-              member={member}
-              currentUserRole={currentUserRole}
-              onUpdateRole={onUpdateRole}
-            />
+            <MemberMenu member={member} currentUserRole={currentUserRole} onUpdateRole={onUpdateRole} />
           </span>
         )}
       </div>
@@ -231,19 +219,19 @@ export default function MembersList({
       `}</style>
 
       <div className="members-header">
-        <span className="members-count">MEMBRES — {members.length}</span>
+        <span className="members-count">{t('members.title')} — {members.length}</span>
       </div>
 
       <div className="members-content">
         {onlineMembers.length > 0 && (
           <div className="members-section">
-            <div className="section-title">EN LIGNE — {onlineMembers.length}</div>
+            <div className="section-title">{t('members.online')} — {onlineMembers.length}</div>
             {onlineMembers.map(renderMember)}
           </div>
         )}
         {offlineMembers.length > 0 && (
           <div className="members-section">
-            <div className="section-title">HORS LIGNE — {offlineMembers.length}</div>
+            <div className="section-title">{t('members.offline')} — {offlineMembers.length}</div>
             {offlineMembers.map(renderMember)}
           </div>
         )}
