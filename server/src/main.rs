@@ -167,7 +167,7 @@ println!("✅ SQL migration v2 applied!");
         .layer(cors)
         .with_state(state);
 
-    let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
+    let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "3001".to_string());
     let addr = format!("0.0.0.0:{port}");
     println!("🚀 RTC Server running on http://{addr}");
 

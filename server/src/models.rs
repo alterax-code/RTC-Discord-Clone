@@ -72,6 +72,7 @@ pub struct UpdateChannelPayload {
 // ===================== SERVER MEMBER =====================
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[allow(dead_code)]
 pub struct ServerMember {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -132,8 +133,9 @@ pub struct Message {
     pub created_at: BsonDateTime,
     pub deleted: bool,
     /// "user" (défaut) ou "system" pour les messages d'événements serveur
-    #[serde(default = "default_message_type")]
-    pub message_type: String,
+    #[serde(skip_serializing_if = 
+        "Option::is_none")]
+    pub edited_at: Option<BsonDateTime>,
 }
 
 fn default_message_type() -> String {
@@ -172,13 +174,4 @@ pub struct LoginRequest {
 pub struct AuthResponse {
     pub token: String,
     pub user: UserPublic,
-}
-
-// ===================== WEBSOCKET EVENTS =====================
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WsEvent {
-    #[serde(rename = "type")]
-    pub event_type: String,
-    pub data: serde_json::Value,
 }

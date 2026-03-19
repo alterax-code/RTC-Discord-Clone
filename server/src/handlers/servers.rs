@@ -216,6 +216,7 @@ pub async fn join_server(
     }
 
     let existing = get_member_role(pool, user_id, server_id).await;
+
 if existing.is_some() {
     return Err(StatusCode::CONFLICT);
 }
