@@ -135,3 +135,58 @@ pub async fn delete_message_http(
         Err(StatusCode::NOT_FOUND)
     }
 }
+
+// ==================== EDIT ====================
+
+/// Payload reçu dans le body de la requête PUT /messages/{id}
+#[derive(serde::Deserialize)]
+pub struct EditMessagePayload {
+    pub content: String,
+}
+
+pub async fn edit_message_http(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path(message_id): Path<String>,
+    Json(payload): Json<EditMessagePayload>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // 1. Vérifier que le contenu n'est pas vide
+    if payload.content.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // 2. Récupérer le message pour vérifier que c'est bien l'auteur
+    let msg = mongo::get_message_by_id(&state.messages, &message_id)
+        .await
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    // 3. Vérifier que c'est bien l'auteur qui édite
+    if msg.user_id != user_id.to_string() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // 4. Mettre à jour dans MongoDB
+    let updated = mongo::edit_message(&state.messages, &message_id, &payload.content)
+        .await
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // 5. Broadcaster l'event WebSocket
+    let ws_event = serde_json::json!({
+        "type": "message_edited",
+        "data": {
+            "message_id": message_id,
+            "channel_id": msg.channel_id,
+            "new_content": payload.content,
+            "edited_at": updated.edited_at.map(|d| d.to_string())
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
+    // 6. Retourner le message modifié
+    Ok(Json(serde_json::json!({
+        "id": message_id,
+        "content": payload.content,
+        "edited_at": updated.edited_at.map(|d| d.to_string()),
+        "message": "Message edited"
+    })))
+}
