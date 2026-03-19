@@ -133,8 +133,9 @@ pub struct Message {
     pub created_at: BsonDateTime,
     pub deleted: bool,
     /// "user" (défaut) ou "system" pour les messages d'événements serveur
-    #[serde(default = "default_message_type")]
-    pub message_type: String,
+    #[serde(skip_serializing_if = 
+        "Option::is_none")]
+    pub edited_at: Option<BsonDateTime>,
 }
 
 fn default_message_type() -> String {
