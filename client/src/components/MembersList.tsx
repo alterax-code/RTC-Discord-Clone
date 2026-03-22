@@ -1,5 +1,6 @@
 'use client';
 
+import BanModal from './BanModal';
 import { useState, useRef, useEffect } from 'react';
 
 interface Member {
@@ -48,13 +49,17 @@ function TypingDots() {
 
 // ── Menu ⋯ pour un membre ──
 function MemberMenu({
-  member, currentUserRole, onUpdateRole, serverId, onKick,
+ ban-react-ladji
+  member, currentUserRole, onUpdateRole, onKick, onBanClick,
+
 }: {
   member: Member;
   currentUserRole?: string;
   onUpdateRole?: (userId: string, newRole: string) => void;
-  serverId?: string;
+
   onKick?: (userId: string) => void;
+  onBanClick?: (member: Member) => void;
+
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -141,6 +146,29 @@ if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return
           )}
           {canTransfer && (
             <>
+            
+                {/* Kick */}
+              {(currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner' && (
+                <>
+                  <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
+                  <button
+                    onClick={() => { setOpen(false); onKick?.(member.id); }}
+                    style={{ ...itemStyle, color: '#ed4245' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    👢 Expulser
+                  </button>
+                  <button
+                    onClick={() => { setOpen(false); onBanClick?.(member); }}
+                    style={{ ...itemStyle, color: '#ed4245' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    🔨 Bannir
+                  </button>
+                </>
+              )}
               <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
               <button
                 onClick={() => {
