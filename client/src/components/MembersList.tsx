@@ -17,6 +17,7 @@ interface MembersListProps {
   currentUserRole?: 'owner' | 'admin' | 'member';
   serverId?: string;
   onUpdateRole?: (userId: string, newRole: string) => void;
+  onKick?: (userId: string) => void;
 }
 
 const roleIcons: Record<string, string> = {
@@ -48,13 +49,17 @@ function TypingDots() {
 
 // ── Menu ⋯ pour un membre ──
 function MemberMenu({
+ ban-react-ladji
   member, currentUserRole, onUpdateRole, onKick, onBanClick,
+
 }: {
   member: Member;
   currentUserRole?: string;
   onUpdateRole?: (userId: string, newRole: string) => void;
+
   onKick?: (userId: string) => void;
   onBanClick?: (member: Member) => void;
+
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -72,13 +77,16 @@ function MemberMenu({
     display: 'flex', alignItems: 'center', gap: '8px',
     width: '100%', padding: '9px 14px', background: 'none',
     border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '13px',
+    whiteSpace: 'nowrap',
   };
 
   const canPromoteToAdmin = currentUserRole === 'owner' && member.role === 'member';
   const canDemoteToMember = currentUserRole === 'owner' && member.role === 'admin';
   const canTransfer = currentUserRole === 'owner' && member.role !== 'owner';
 
-  if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer) return null;
+  const canKick = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner';
+
+if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return null;
 
   return (
     <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -96,14 +104,26 @@ function MemberMenu({
         ⋯
       </button>
 
+      {/* ★ FIX: Dropdown en position fixed pour ne jamais être coupé */}
       {open && (
         <div style={{
-          position: 'absolute', right: 0, top: '100%', marginTop: '4px',
+          position: 'fixed',
+          top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
           background: '#111214', border: '1px solid #3f4147',
-          borderRadius: '6px', minWidth: '180px', zIndex: 999,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)', overflow: 'hidden',
+          borderRadius: '8px', minWidth: '220px', zIndex: 9999,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.8)', overflow: 'hidden',
+          padding: '4px 0',
         }}>
-          {/* Rôles */}
+          {/* Header du menu */}
+          <div style={{
+            padding: '8px 14px', fontSize: '11px', fontWeight: 700,
+            color: '#8e9297', textTransform: 'uppercase', letterSpacing: '0.5px',
+            borderBottom: '1px solid #3f4147',
+          }}>
+            Gérer {member.username}
+          </div>
+
           {canPromoteToAdmin && (
             <button
               onClick={() => { setOpen(false); onUpdateRole?.(member.id, 'admin'); }}
@@ -164,14 +184,54 @@ function MemberMenu({
               </button>
             </>
           )}
+          {/* Séparateur + Kick */}
+          {canKick && (
+            <>
+              <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  if (confirm(`Expulser ${member.username} du serveur ?`))
+                    onKick?.(member.id);
+                }}
+                style={{ ...itemStyle, color: '#ed4245' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                🚪 Expulser (Kick)
+              </button>
+            </>
+          )}
+
+          {/* Bouton fermer */}
+          <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
+          <button
+            onClick={() => setOpen(false)}
+            style={{ ...itemStyle, color: '#8e9297', justifyContent: 'center' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#2b2d31')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+          >
+            Annuler
+          </button>
         </div>
+      )}
+
+      {/* ★ Backdrop sombre quand le menu est ouvert */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'rgba(0,0,0,0.4)',
+          }}
+        />
       )}
     </div>
   );
 }
 
 export default function MembersList({
-  members, typingUserIds, currentUserId, currentUserRole, onUpdateRole,
+  members, typingUserIds, currentUserId, currentUserRole, serverId, onUpdateRole, onKick,
 }: MembersListProps) {
   const typing = typingUserIds || new Set<string>();
   const onlineMembers = members.filter(m => m.online);
@@ -201,13 +261,14 @@ export default function MembersList({
           {isTyping && <TypingDots />}
         </span>
 
-        {/* Menu ⋯ visible au hover si on peut gérer ce membre */}
         {canManageThis && (
           <span className="member-actions">
             <MemberMenu
               member={member}
               currentUserRole={currentUserRole}
               onUpdateRole={onUpdateRole}
+              serverId={serverId}
+              onKick={onKick}
             />
           </span>
         )}

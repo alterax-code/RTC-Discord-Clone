@@ -16,30 +16,31 @@
   --red-light: #ef4444;
   --red-dark: #991b1b;
   --red-darker: #7f1d1d;
-  
+
   /* DARK THEME (par défaut) */
   --bg-primary: #0f0f0f;
   --bg-secondary: #171717;
   --bg-tertiary: #1a1a1a;
   --bg-hover: #262626;
-  
+
   --text-primary: #e4e4e4;
   --text-secondary: #a3a3a3;
   --text-tertiary: #737373;
-  
+
   --border: #262626;
   --border-light: #404040;
-  
+
   --success: #22c55e;
   --warning: #eab308;
   --error: #dc2626;
-  
+
   --online: #22c55e;
   --offline: #737373;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -146,8 +147,13 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .home-header h1 {
@@ -632,20 +638,45 @@ body {
 
 /* ---- Mobile (< 768px) ---- */
 @media (max-width: 768px) {
-
   /* === HOME PAGE === */
-  .home-header h1 { font-size: 2rem; }
-  .tagline { font-size: 1rem; }
-  .home-cta { flex-direction: column; width: 100%; max-width: 280px; }
-  .features { grid-template-columns: 1fr; }
+  .home-header h1 {
+    font-size: 2rem;
+  }
+  .tagline {
+    font-size: 1rem;
+  }
+  .home-cta {
+    flex-direction: column;
+    width: 100%;
+    max-width: 280px;
+  }
+  .features {
+    grid-template-columns: 1fr;
+  }
 
   /* === SERVERS PAGE === */
-  .servers-page { padding: 20px 16px; }
-  .servers-header { flex-direction: column; gap: 16px; align-items: flex-start; }
-  .servers-header h1 { font-size: 1.8rem; }
-  .servers-actions { width: 100%; flex-direction: column; }
-  .servers-actions button { width: 100%; }
-  .servers-grid { grid-template-columns: 1fr; gap: 16px; }
+  .servers-page {
+    padding: 20px 16px;
+  }
+  .servers-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .servers-header h1 {
+    font-size: 1.8rem;
+  }
+  .servers-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  .servers-actions button {
+    width: 100%;
+  }
+  .servers-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 
   /* === CHAT LAYOUT MOBILE ===
      serveurs (70px) | chat plein écran | membres (140px toujours visible)
@@ -666,7 +697,7 @@ body {
     z-index: 200;
     transform: translateX(-290px);
     transition: transform 0.25s ease;
-    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
   }
   .channels-list.mobile-open {
     transform: translateX(0);
@@ -678,7 +709,7 @@ body {
     position: fixed;
     inset: 0;
     left: 70px;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0, 0, 0, 0.55);
     z-index: 199;
     backdrop-filter: blur(2px);
   }
@@ -736,22 +767,48 @@ body {
   }
 
   /* Chat header compact */
-  .chat-header { padding: 10px 8px; min-height: 50px; }
-  .channel-title { font-size: 0.9rem; }
+  .chat-header {
+    padding: 10px 8px;
+    min-height: 50px;
+  }
+  .channel-title {
+    font-size: 0.9rem;
+  }
 
   /* Input compact */
-  .chat-input-container { padding: 10px; }
-  .chat-input { font-size: 0.95rem; padding: 10px 12px; }
+  .chat-input-container {
+    padding: 10px;
+  }
+  .chat-input {
+    font-size: 0.95rem;
+    padding: 10px 12px;
+  }
 
   /* Messages compact */
-  .messages-container { padding: 10px; }
-  .message-item { padding: 3px 4px; }
-  .message-avatar { width: 32px; height: 32px; font-size: 0.8rem; flex-shrink: 0; }
-  .message-username { font-size: 0.88rem; }
-  .message-text { font-size: 0.9rem; }
+  .messages-container {
+    padding: 10px;
+  }
+  .message-item {
+    padding: 3px 4px;
+  }
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .message-username {
+    font-size: 0.88rem;
+  }
+  .message-text {
+    font-size: 0.9rem;
+  }
 
   /* Modals */
-  .modal-content { width: 95%; max-height: 95vh; }
+  .modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
 }
 
 /* ---- Très petit mobile (< 480px) ---- */
@@ -791,34 +848,52 @@ body {
     display: none;
   }
 
-  .servers-page { padding: 16px 12px; }
+  .servers-page {
+    padding: 16px 12px;
+  }
   .modal-content {
     width: 100%;
     border-radius: 12px 12px 0 0;
     position: fixed;
-    bottom: 0; left: 0; right: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
     max-height: 85vh;
   }
-  .modal-overlay { align-items: flex-end; }
-  .auth-container { padding: 28px 18px; }
-  .auth-header h1 { font-size: 1.8rem; }
-  .auth-logo { font-size: 3rem; }
-  .home-header h1 { font-size: 1.8rem; }
+  .modal-overlay {
+    align-items: flex-end;
+  }
+  .auth-container {
+    padding: 28px 18px;
+  }
+  .auth-header h1 {
+    font-size: 1.8rem;
+  }
+  .auth-logo {
+    font-size: 3rem;
+  }
+  .home-header h1 {
+    font-size: 1.8rem;
+  }
 }
 
 /* Par défaut (desktop) : hamburger caché, overlay caché */
-.mobile-menu-btn { display: none; }
-.mobile-sidebar-overlay { display: none; }
+.mobile-menu-btn {
+  display: none;
+}
+.mobile-sidebar-overlay {
+  display: none;
+}
 
 @media (max-width: 480px) {
   .servers-page {
     padding: 20px;
   }
-  
+
   .servers-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .modal-content {
     width: 95%;
   }
@@ -873,7 +948,10 @@ body {
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  transition: border-radius 0.2s, background 0.2s, transform 0.15s;
+  transition:
+    border-radius 0.2s,
+    background 0.2s,
+    transform 0.15s;
   flex-shrink: 0;
   position: relative;
 }
@@ -983,7 +1061,9 @@ body {
   font-size: 0.85rem;
   border: none;
   cursor: pointer;
-  transition: border-radius 0.2s, background 0.2s;
+  transition:
+    border-radius 0.2s,
+    background 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1019,7 +1099,7 @@ body {
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .sb-server-item:hover .sb-tooltip {
@@ -1054,7 +1134,6 @@ body {
   flex-shrink: 0;
 }
 
-
 /* Bouton fermeture drawer channels (mobile) */
 .channels-close-btn {
   display: none;
@@ -1066,7 +1145,9 @@ body {
   padding: 4px 6px;
   border-radius: 4px;
   line-height: 1;
-  transition: color 0.2s, background 0.2s;
+  transition:
+    color 0.2s,
+    background 0.2s;
   flex-shrink: 0;
 }
 
@@ -1269,8 +1350,6 @@ body {
   min-width: 0;
   flex: 1;
 }
-
-
 
 .channels-items {
   display: flex;
@@ -1782,7 +1861,10 @@ body {
 }
 
 .transition-colors {
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .transition-transform {
@@ -1791,7 +1873,9 @@ body {
 
 /* Hover lift effect */
 .hover-lift {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .hover-lift:hover {
@@ -1815,7 +1899,9 @@ body {
 
 /* Typing indicator dots */
 @keyframes typingDot {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     opacity: 0.3;
   }
   30% {
@@ -1977,7 +2063,9 @@ html {
   cursor: pointer;
   font-size: 13px;
   line-height: 1;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .message-delete-btn:hover {
@@ -2009,7 +2097,7 @@ html {
 
 .member-dots-btn:hover {
   color: #fff;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .member-item:hover .member-dots-btn {
@@ -2023,7 +2111,7 @@ html {
   background: #111214;
   border: 1px solid #2e3035;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   min-width: 200px;
   max-width: 220px;
   padding: 6px;
@@ -2052,7 +2140,9 @@ html {
   padding: 8px 10px;
   border-radius: 4px;
   text-align: left;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 
 .member-menu-item:hover {
@@ -2079,4 +2169,65 @@ html {
   color: #5c6068;
   padding: 8px 10px;
   text-align: center;
+}
+
+/* ── Bouton déconnexion sur la page /servers ── */
+.btn-logout-header {
+  background: #2a1010;
+  color: #f87171;
+  border: 1px solid #7f1d1d;
+  padding: 10px 22px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout-header:hover {
+  background: var(--primary-red);
+  color: white;
+  border-color: var(--primary-red);
+}
+
+/* ── Fix responsive du dropdown de gestion des rôles ── */
+.member-menu-dropdown {
+  max-width: calc(100vw - 20px);
+}
+
+@media (max-width: 768px) {
+  .member-menu-dropdown {
+    min-width: 160px !important;
+    right: auto !important;
+    left: auto !important;
+    /* Positionner vers la gauche pour ne pas déborder */
+    transform: translateX(-60%);
+  }
+
+  .member-menu-dropdown button {
+    font-size: 12px !important;
+    padding: 8px 10px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Bouton logout full width sur mobile */
+  .btn-logout-header {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .member-menu-dropdown {
+    position: fixed !important;
+    left: 50% !important;
+    top: auto !important;
+    bottom: 20px !important;
+    transform: translateX(-50%) !important;
+    min-width: 200px !important;
+    max-width: 90vw !important;
+    right: auto !important;
+  }
 }

@@ -9,6 +9,7 @@ interface Message {
   content: string;
   timestamp: string;
   messageType?: string;
+  edited?: boolean;
 }
 
 interface MessageListProps {
@@ -16,6 +17,7 @@ interface MessageListProps {
   currentUserId?: string;
   userRole?: 'owner' | 'admin' | 'member';
   onDeleteMessage?: (msgId: string) => void;
+  onEditMessage?: (msgId: string, newContent: string) => void;
 }
 
 function safeKey(id: any, index: number): string {

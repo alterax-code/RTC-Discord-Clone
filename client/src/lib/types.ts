@@ -121,6 +121,7 @@ export interface WSNewMessageEvent {
     username: string;
     content: string;
     created_at: string;
+    message_type?: string;
   };
 }
 
@@ -188,6 +189,7 @@ export interface WSMemberBannedEvent {
     user_id: string;
     reason: string;
     expires_at: string | null;
+
   };
 }
 
@@ -218,6 +220,7 @@ export interface WSChannelDeletedEvent {
 export interface WSMemberRoleUpdatedEvent {
   type: 'member_role_updated';
   data: { server_id: string; user_id: string; role: string; changes?: Array<{ user_id: string; role: string; new_role: string }>; };
+
 }
 
 export type WSEvent =
@@ -234,6 +237,7 @@ export type WSEvent =
   | WSChannelCreatedEvent
   | WSChannelDeletedEvent
   | WSMemberRoleUpdatedEvent;
+
 
 // ============================================
 // API ERROR TYPES
