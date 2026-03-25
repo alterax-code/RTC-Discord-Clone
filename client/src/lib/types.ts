@@ -162,13 +162,78 @@ export interface WSMessageHistoryEvent {
   };
 }
 
+export interface WSMemberJoinedEvent {
+  type: 'member_joined';
+  data: {
+    server_id: string;
+    user_id: string;
+    username: string;
+    role: string;
+  };
+}
+
+export interface WSMemberKickedEvent {
+  type: 'member_kicked';
+  data: {
+    server_id: string;
+    user_id: string;
+    reason: string;
+  };
+}
+
+export interface WSMemberBannedEvent {
+  type: 'member_banned';
+  data: {
+    server_id: string;
+    user_id: string;
+    reason: string;
+    expires_at: string | null;
+  };
+}
+
+export interface WSMemberJoinedEvent {
+  type: 'member_joined';
+  data: { server_id: string; user_id: string; username: string; role: string; };
+}
+export interface WSMemberLeftEvent {
+  type: 'member_left';
+  data: { server_id: string; user_id: string; };
+}
+export interface WSMemberKickedEvent {
+  type: 'member_kicked';
+  data: { server_id: string; user_id: string; reason: string; };
+}
+export interface WSMemberBannedEvent {
+  type: 'member_banned';
+  data: { server_id: string; user_id: string; reason: string; expires_at: string | null; };
+}
+export interface WSChannelCreatedEvent {
+  type: 'channel_created';
+  data: { server_id: string; channel: Channel; };
+}
+export interface WSChannelDeletedEvent {
+  type: 'channel_deleted';
+  data: { server_id: string; channel_id: string; };
+}
+export interface WSMemberRoleUpdatedEvent {
+  type: 'member_role_updated';
+  data: { server_id: string; user_id: string; role: string; changes?: Array<{ user_id: string; role: string; new_role: string }>; };
+}
+
 export type WSEvent =
   | WSNewMessageEvent
   | WSUserOnlineEvent
   | WSUserOfflineEvent
   | WSUserTypingEvent
   | WSOnlineUsersEvent
-  | WSMessageHistoryEvent;
+  | WSMessageHistoryEvent
+  | WSMemberJoinedEvent
+  | WSMemberLeftEvent
+  | WSMemberKickedEvent
+  | WSMemberBannedEvent
+  | WSChannelCreatedEvent
+  | WSChannelDeletedEvent
+  | WSMemberRoleUpdatedEvent;
 
 // ============================================
 // API ERROR TYPES
