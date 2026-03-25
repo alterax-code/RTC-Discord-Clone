@@ -10,7 +10,7 @@ import ChatInput from '@/components/ChatInput';
 import { serversApi, channelsApi, messagesApi } from '@/lib/api';
 import { isAuthenticated, getCurrentUser } from '@/lib/auth';
 import wsClient from '@/lib/websocket';
-import { Channel, WSEvent } from '@/lib/types';
+import { Channel, WSEvent, MemberRole } from '@/lib/types';
 
 // ---- Types ----
 
@@ -20,6 +20,8 @@ interface DisplayMessage {
   username: string;
   content: string;
   timestamp: string;
+  messageType?: string;
+  editedAt?: string;
 }
 
 interface DisplayMember {
@@ -205,7 +207,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             username: msg.username || 'Inconnu',
             content: msg.content || '',
             timestamp: formatTime(msg.created_at || new Date().toISOString()),
-            messageType: msg.message_type || 'user',
+            messageType: (msg as any).message_type || 'user',
           }]);
           // Retirer typing quand message envoyé
           if (msg.user_id) {
@@ -242,8 +244,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           if (server_id !== serverId) break;
           setMembers(prev => {
             if (prev.find(m => m.id === user_id)) return prev;
-            return [...prev, { id: user_id, username, role, online: true }];
-          });
+            return [...prev, { id: user_id, username, role: role as 'owner' | 'admin' | 'member', online: true }];          });
           setOnlineUserIds(prev => new Set([...prev, user_id]));
           break;
         }
@@ -451,7 +452,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   }, [serverId, router, currentUser, members]);
 
   const handleUpdateRole = useCallback(async (userId: string, newRole: string) => {
-    await serversApi.updateMember(serverId, userId, { role: newRole });
+    await serversApi.updateMember(serverId, userId, { role: newRole as MemberRole });
     // Mettre à jour localement
     setMembers(prev => prev.map(m => {
       if (newRole === 'owner') {
