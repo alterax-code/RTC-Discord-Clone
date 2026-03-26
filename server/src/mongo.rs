@@ -136,3 +136,68 @@ pub async fn get_message_by_id(
         .await
         .ok()?
 }
+/// Ajouter une réaction à un message
+pub async fn add_reaction(
+    collection: &Collection<Message>,
+    message_id: &str,
+    emoji: &str,
+    user_id: &str,
+) -> bool {
+    let object_id = match mongodb::bson::oid::ObjectId::parse_str(message_id) {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+
+    match collection
+        .update_one(
+            doc! { "_id": object_id, "reactions.emoji": emoji },
+            doc! { "$addToSet": { "reactions.$.user_ids": user_id } },
+            None,
+        )
+        .await
+    {
+        Ok(result) if result.modified_count > 0 => true,
+        _ => {
+            // La réaction n'existe pas encore, on la crée
+            match collection
+                .update_one(
+                    doc! { "_id": object_id },
+                    doc! { "$push": { "reactions": { "emoji": emoji, "user_ids": [user_id] } } },
+                    None,
+                )
+                .await
+            {
+                Ok(result) => result.modified_count > 0,
+                Err(_) => false,
+            }
+        }
+    }
+}
+
+/// Retirer une réaction d'un message
+pub async fn remove_reaction(
+    collection: &Collection<Message>,
+    message_id: &str,
+    emoji: &str,
+    user_id: &str,
+) -> bool {
+    let object_id = match mongodb::bson::oid::ObjectId::parse_str(message_id) {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+
+    match collection
+        .update_one(
+            doc! { "_id": object_id, "reactions.emoji": emoji },
+            doc! { "$pull": { "reactions.$.user_ids": user_id } },
+            None,
+        )
+        .await
+    {
+        Ok(result) => result.modified_count > 0,
+        Err(e) => {
+            eprintln!("MongoDB remove_reaction error: {e}");
+            false
+        }
+    }
+}
