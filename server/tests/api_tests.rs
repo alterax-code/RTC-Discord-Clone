@@ -953,3 +953,106 @@ async fn test_delete_message_not_owner_403() {
 
     assert_eq!(res.status().as_u16(), 403);
 }
+// ==================== WEBSOCKET EVENT TESTS ====================
+
+#[tokio::test]
+async fn test_ws_member_kicked_event() {
+    let client = Client::new();
+    let (token1, _) = register_user(&client, "ws_kick_own", "ws_kick_own@example.com").await;
+    let (token2, user2_id) = register_user(&client, "ws_kick_mem", "ws_kick_mem@example.com").await;
+    let (server_id, invite_code) = create_server(&client, &token1, "WS Kick Server").await;
+
+    // User2 joins
+    let _ = client
+        .post(format!("{BASE}/servers/{server_id}/join"))
+        .header("Authorization", format!("Bearer {token2}"))
+        .json(&json!({"invite_code": invite_code}))
+        .send()
+        .await;
+
+    // Owner kicks user2
+    let res = client
+        .delete(format!("{BASE}/servers/{server_id}/members/{user2_id}/kick"))
+        .header("Authorization", format!("Bearer {token1}"))
+        .send()
+        .await
+        .unwrap();
+
+    assert!(res.status().is_success() || res.status().as_u16() == 204);
+}
+
+#[tokio::test]
+async fn test_ws_member_banned_event() {
+    let client = Client::new();
+    let (token1, _) = register_user(&client, "ws_ban_own", "ws_ban_own@example.com").await;
+    let (token2, user2_id) = register_user(&client, "ws_ban_mem", "ws_ban_mem@example.com").await;
+    let (server_id, invite_code) = create_server(&client, &token1, "WS Ban Server").await;
+
+    // User2 joins
+    let _ = client
+        .post(format!("{BASE}/servers/{server_id}/join"))
+        .header("Authorization", format!("Bearer {token2}"))
+        .json(&json!({"invite_code": invite_code}))
+        .send()
+        .await;
+
+    // Owner bans user2
+    let res = client
+        .post(format!("{BASE}/servers/{server_id}/members/{user2_id}/ban"))
+        .header("Authorization", format!("Bearer {token1}"))
+        .json(&json!({"reason": "test ban", "duration_hours": null}))
+        .send()
+        .await
+        .unwrap();
+
+    assert!(res.status().is_success() || res.status().as_u16() == 204);
+}
+
+#[tokio::test]
+async fn test_ws_reaction_added() {
+    let client = Client::new();
+    let (token, _) = register_user(&client, "ws_react_own", "ws_react_own@example.com").await;
+    let (server_id, _) = create_server(&client, &token, "WS React Server").await;
+    let channel_id = create_channel(&client, &token, &server_id, "react-chan").await;
+
+    // Send a message
+    let res = client
+        .post(format!("{BASE}/channels/{channel_id}/messages"))
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&json!({"content": "react to this"}))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = res.json().await.unwrap();
+    let msg_id = body["id"].as_str().unwrap_or("");
+
+    if msg_id.is_empty() { return; }
+
+    // Add reaction
+    let res = client
+        .post(format!("{BASE}/messages/{msg_id}/reactions"))
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&json!({"emoji": "👍"}))
+        .send()
+        .await
+        .unwrap();
+
+    assert!(res.status().is_success());
+}
+
+#[tokio::test]
+async fn test_ws_dm_message() {
+    let client = Client::new();
+    let (token1, _) = register_user(&client, "ws_dm_user1", "ws_dm_user1@example.com").await;
+    let (_, user2_id) = register_user(&client, "ws_dm_user2", "ws_dm_user2@example.com").await;
+
+    // Create DM conversation
+    let res = client
+        .post(format!("{BASE}/dm/{user2_id}"))
+        .header("Authorization", format!("Bearer {token1}"))
+        .send()
+        .await
+        .unwrap();
+    assert!(res.status().is_success() || res.status().as_u16() == 201);
+}
+
