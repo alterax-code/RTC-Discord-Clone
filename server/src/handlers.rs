@@ -749,3 +749,72 @@ pub async fn delete_message_http(
         Err(StatusCode::NOT_FOUND)
     }
 }
+// ==================== REACTIONS ====================
+
+/// POST /messages/:id/reactions - Ajouter une réaction
+pub async fn add_reaction(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path(message_id): Path<String>,
+    Json(payload): Json<serde_json::Value>,
+) -> Result<StatusCode, StatusCode> {
+    let emoji = payload
+        .get("emoji")
+        .and_then(|e| e.as_str())
+        .ok_or(StatusCode::BAD_REQUEST)?
+        .to_string();
+
+    let result = mongo::add_reaction(
+        &state.messages,
+        &message_id,
+        &emoji,
+        &user_id.to_string(),
+    )
+    .await;
+
+    if result {
+        // Broadcast via WebSocket
+        let event = serde_json::json!({
+            "type": "reaction_added",
+            "data": {
+                "message_id": message_id,
+                "emoji": emoji,
+                "user_id": user_id.to_string()
+            }
+        });
+        let _ = state.bus.send(event.to_string());
+        Ok(StatusCode::OK)
+    } else {
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
+    }
+}
+
+/// DELETE /messages/:id/reactions/:emoji - Retirer sa réaction
+pub async fn remove_reaction(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path((message_id, emoji)): Path<(String, String)>,
+) -> Result<StatusCode, StatusCode> {
+    let result = mongo::remove_reaction(
+        &state.messages,
+        &message_id,
+        &emoji,
+        &user_id.to_string(),
+    )
+    .await;
+
+    if result {
+        let event = serde_json::json!({
+            "type": "reaction_removed",
+            "data": {
+                "message_id": message_id,
+                "emoji": emoji,
+                "user_id": user_id.to_string()
+            }
+        });
+        let _ = state.bus.send(event.to_string());
+        Ok(StatusCode::OK)
+    } else {
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
+    }
+}
