@@ -131,6 +131,7 @@ async fn main() {
         )
         .route("/channels/{id}/messages", get(handlers::list_messages))
         .route("/messages/{id}", delete(handlers::delete_message_http))
+        .route("/gif/search", get(handlers::search_gifs)) // GIF Search - Proxy Tenor (Noemie)
         // Middleware auth
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
