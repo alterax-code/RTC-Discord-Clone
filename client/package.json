@@ -2,12 +2,15 @@
   "name": "client",
   "version": "0.1.0",
   "private": true,
+  "main": "../electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "echo 'Client tests: see server-side integration tests (27 tests)' && exit 0"
+    "test": "echo 'Client tests: see server-side integration tests (27 tests)' && exit 0",
+    "electron": "electron ../electron/main.js",
+    "electron:build": "electron-builder"
   },
   "dependencies": {
     "lucide-react": "^0.563.0",
@@ -22,9 +25,19 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.rtc.strikesback",
+    "productName": "RTC Strikes Back",
+    "files": ["../electron/**/*", ".next/**/*", "public/**/*"],
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" },
+    "mac": { "target": "dmg" }
   }
 }
