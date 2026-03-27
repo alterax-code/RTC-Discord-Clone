@@ -121,6 +121,7 @@ export interface WSNewMessageEvent {
     username: string;
     content: string;
     created_at: string;
+    message_type?: string;
   };
 }
 
@@ -162,34 +163,10 @@ export interface WSMessageHistoryEvent {
   };
 }
 
-export interface WSMemberJoinedEvent {
-  type: 'member_joined';
+  type: 'error';
   data: {
-    server_id: string;
-    user_id: string;
-    username: string;
-    role: string;
+    message: string;
   };
-}
-
-export interface WSMemberKickedEvent {
-  type: 'member_kicked';
-  data: {
-    server_id: string;
-    user_id: string;
-    reason: string;
-  };
-}
-
-export interface WSMemberBannedEvent {
-  type: 'member_banned';
-  data: {
-    server_id: string;
-    user_id: string;
-    reason: string;
-    expires_at: string | null;
-  };
-}
 
 export interface WSMemberJoinedEvent {
   type: 'member_joined';
@@ -227,14 +204,16 @@ export type WSEvent =
   | WSUserTypingEvent
   | WSOnlineUsersEvent
   | WSMessageHistoryEvent
+  | WSServerDeletedEvent
+  | WSChannelCreatedEvent
+  | WSChannelDeletedEvent
   | WSMemberJoinedEvent
   | WSMemberLeftEvent
   | WSMemberKickedEvent
   | WSMemberBannedEvent
-  | WSChannelCreatedEvent
-  | WSChannelDeletedEvent
-  | WSMemberRoleUpdatedEvent;
-
+  | WSMemberRoleUpdatedEvent
+  | WSMessageDeletedEvent
+  | WSErrorEvent;
 // ============================================
 // API ERROR TYPES
 // ============================================
@@ -249,3 +228,4 @@ export interface ApiResponse<T> {
   data?: T;
   error?: ApiError;
 }
+u
