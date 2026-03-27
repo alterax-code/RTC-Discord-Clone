@@ -102,6 +102,11 @@ export interface Message {
   content: string;
   created_at: string;
   deleted?: boolean;
+  message_type?: string;
+  reactions?: Array<{
+    emoji: string;
+    user_ids: string[];
+  }>;
 }
 
 export interface CreateMessageRequest {
@@ -112,6 +117,38 @@ export interface CreateMessageRequest {
 // WEBSOCKET EVENT TYPES
 // ============================================
 
+export interface WSMessageDeletedEvent {
+  type: 'message_deleted';
+  data: {
+    message_id: string;
+    channel_id: string;
+    deleted_by: string;
+  };
+}
+export interface WSServerDeletedEvent {
+  type: 'server_deleted';
+  data: {
+    server_id: string;
+  };
+}
+
+export interface WSReactionAddedEvent {
+  type: 'reaction_added';
+  data: {
+    message_id: string;
+    emoji: string;
+    user_id: string;
+  };
+}
+
+export interface WSReactionRemovedEvent {
+  type: 'reaction_removed';
+  data: {
+    message_id: string;
+    emoji: string;
+    user_id: string;
+  };
+}
 export interface WSNewMessageEvent {
   type: 'new_message';
   data: {
@@ -163,10 +200,12 @@ export interface WSMessageHistoryEvent {
   };
 }
 
+export interface WSErrorEvent {
   type: 'error';
   data: {
     message: string;
   };
+}
 
 export interface WSMemberJoinedEvent {
   type: 'member_joined';
@@ -213,7 +252,9 @@ export type WSEvent =
   | WSMemberBannedEvent
   | WSMemberRoleUpdatedEvent
   | WSMessageDeletedEvent
-  | WSErrorEvent;
+  | WSErrorEvent
+  | WSReactionAddedEvent
+  | WSReactionRemovedEvent;
 // ============================================
 // API ERROR TYPES
 // ============================================
@@ -228,4 +269,3 @@ export interface ApiResponse<T> {
   data?: T;
   error?: ApiError;
 }
-u

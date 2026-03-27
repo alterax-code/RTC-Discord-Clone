@@ -22,6 +22,10 @@ interface DisplayMessage {
   timestamp: string;
   messageType?: string;
   editedAt?: string;
+  reactions?: Array<{
+    emoji: string;
+    user_ids: string[];
+  }>;
 }
 
 interface DisplayMember {
@@ -180,6 +184,7 @@ export default function ChatPage({
 
     loadData();
   }, [serverId]);
+
 
   // ---- Load messages when channel changes ----
   useEffect(() => {
@@ -399,6 +404,46 @@ export default function ChatPage({
             });
           }, 5000);
           typingTimersRef.current.set(user_id, newTimer);
+          break;
+        }
+
+        // ★ Reaction ajoutée — mettre à jour le compteur en temps réel
+        case 'reaction_added': {
+          const { message_id, emoji, user_id } = event.data || {};
+          setMessages(prev => prev.map(msg => {
+            if (msg.id !== message_id) return msg;
+            const reactions = msg.reactions ? [...msg.reactions] : [];
+            const existing = reactions.find(r => r.emoji === emoji);
+            if (existing) {
+              // L'emoji existe déjà, on ajoute le user_id s'il n'est pas déjà là
+              if (!existing.user_ids.includes(user_id)) {
+                return { ...msg, reactions: reactions.map(r =>
+                  r.emoji === emoji
+                    ? { ...r, user_ids: [...r.user_ids, user_id] }
+                    : r
+                )};
+              }
+              return msg;
+            }
+            // Nouvel emoji
+            return { ...msg, reactions: [...reactions, { emoji, user_ids: [user_id] }] };
+          }));
+          break;
+        }
+
+        // ★ Reaction retirée — retirer le user_id, supprimer l'emoji si plus personne
+        case 'reaction_removed': {
+          const { message_id, emoji, user_id } = event.data || {};
+          setMessages(prev => prev.map(msg => {
+            if (msg.id !== message_id) return msg;
+            const reactions = (msg.reactions || [])
+              .map(r => r.emoji === emoji
+                ? { ...r, user_ids: r.user_ids.filter(id => id !== user_id) }
+                : r
+              )
+              .filter(r => r.user_ids.length > 0); // supprimer si plus personne
+            return { ...msg, reactions };
+          }));
           break;
         }
 
