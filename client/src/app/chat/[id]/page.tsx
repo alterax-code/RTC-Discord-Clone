@@ -10,7 +10,7 @@ import ChatInput from "@/components/ChatInput";
 import { serversApi, channelsApi, messagesApi } from "@/lib/api";
 import { isAuthenticated, getCurrentUser, getAuthToken } from "@/lib/auth";
 import wsClient from "@/lib/websocket";
-import { Channel, WSEvent } from "@/lib/types";
+import { Channel, WSEvent, MemberRole } from "@/lib/types";
 
 // ---- Types ----
 
@@ -309,7 +309,7 @@ export default function ChatPage({
           if (server_id !== serverId) break;
           setMembers((prev) => {
             if (prev.find((m) => m.id === user_id)) return prev;
-            return [...prev, { id: user_id, username, role, online: true }];
+            return [...prev, { id: user_id, username, role: role as 'owner' | 'admin' | 'member', online: true }];
           });
           setOnlineUserIds((prev) => new Set([...prev, user_id]));
           break;
@@ -334,7 +334,7 @@ export default function ChatPage({
           if (server_id !== serverId) break;
           setChannels((prev) => {
             if (prev.find((c) => c.id === channel.id)) return prev;
-            return [...prev, channel];
+            return [...prev, channel as Channel];
           });
           // ★ Si c'est un channel qu'on vient de créer, l'auto-sélectionner
           if (pendingChannelSelectRef.current === channel.id) {
@@ -587,7 +587,7 @@ export default function ChatPage({
 
   const handleUpdateRole = useCallback(
     async (userId: string, newRole: string) => {
-      await serversApi.updateMember(serverId, userId, { role: newRole });
+      await serversApi.updateMember(serverId, userId, { role: newRole as MemberRole });
       // Mettre à jour localement
       setMembers((prev) =>
         prev.map((m) => {
