@@ -102,6 +102,11 @@ export interface Message {
   content: string;
   created_at: string;
   deleted?: boolean;
+  message_type?: string;
+  reactions?: Array<{
+    emoji: string;
+    user_ids: string[];
+  }>;
 }
 
 export interface CreateMessageRequest {
@@ -112,6 +117,23 @@ export interface CreateMessageRequest {
 // WEBSOCKET EVENT TYPES
 // ============================================
 
+export interface WSReactionAddedEvent {
+  type: 'reaction_added';
+  data: {
+    message_id: string;
+    emoji: string;
+    user_id: string;
+  };
+}
+
+export interface WSReactionRemovedEvent {
+  type: 'reaction_removed';
+  data: {
+    message_id: string;
+    emoji: string;
+    user_id: string;
+  };
+}
 export interface WSNewMessageEvent {
   type: 'new_message';
   data: {
@@ -233,7 +255,9 @@ export type WSEvent =
   | WSMemberBannedEvent
   | WSChannelCreatedEvent
   | WSChannelDeletedEvent
-  | WSMemberRoleUpdatedEvent;
+  | WSMemberRoleUpdatedEvent
+  | WSReactionAddedEvent
+  | WSReactionRemovedEvent;
 
 // ============================================
 // API ERROR TYPES
