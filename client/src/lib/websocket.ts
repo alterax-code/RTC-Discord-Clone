@@ -3,7 +3,7 @@
 import { getAuthToken } from './auth';
 import { WSEvent } from './types';
 
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
 
 type EventHandler = (event: WSEvent) => void;
 

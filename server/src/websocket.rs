@@ -91,9 +91,19 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
     let username_clone = username.clone();
 
     let mut send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            if sender.send(WsMessage::Text(msg.into())).await.is_err() {
-                break;
+        loop {
+            match rx.recv().await {
+                Ok(msg) => {
+                    if sender.send(WsMessage::Text(msg.into())).await.is_err() {
+                        break; // Client déconnecté
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    // ★ FIX: Ne PAS crash — juste skip les messages manqués
+                    eprintln!("[WS] ⚠️ Receiver lagged, missed {n} messages — continuing");
+                    continue;
+                }
+                Err(_) => break, // Channel fermé
             }
         }
     });

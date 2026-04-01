@@ -8,7 +8,7 @@ import JoinServerModal from '@/components/JoinServerModal';
 import EmptyServers from '@/components/EmptyServers';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { serversApi } from '@/lib/api';
-import { isAuthenticated, getCurrentUser } from '@/lib/auth';
+import { isAuthenticated, getCurrentUser, logout } from '@/lib/auth';
 import { Server } from '@/lib/types';
 
 export default function ServersPage() {
@@ -25,7 +25,6 @@ export default function ServersPage() {
       router.push('/login');
       return;
     }
-    // ★ Lire le user depuis localStorage (client-side uniquement)
     const user = getCurrentUser();
     if (user?.username) setUsername(user.username);
     loadServers();
@@ -38,7 +37,6 @@ export default function ServersPage() {
       const data = await serversApi.getServers();
       setServers(data);
     } catch (e: any) {
-      // ★ Retry automatique (max 2 tentatives) — évite le "Failed to fetch" au premier chargement
       if (attempt < 3) {
         await new Promise(res => setTimeout(res, 600 * attempt));
         return loadServers(attempt + 1);
@@ -67,10 +65,8 @@ export default function ServersPage() {
     try {
       setShowJoinModal(false);
       const server = await serversApi.joinServerByCode(inviteCode);
-      // Recharger la liste des serveurs
       const updated = await serversApi.getServers();
       setServers(updated);
-      // Naviguer vers le serveur rejoint
       if (server && server.id) {
         router.push(`/chat/${server.id}`);
       }
@@ -83,6 +79,11 @@ export default function ServersPage() {
         setError(e.message || 'Erreur lors de la connexion au serveur');
       }
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   };
 
   return (
@@ -101,6 +102,32 @@ export default function ServersPage() {
             onClick={() => setShowJoinModal(true)}
           >
             Rejoindre via code
+          </button>
+          <button
+            onClick={handleLogout}
+            title="Se déconnecter"
+            style={{
+              background: '#2a1010',
+              color: '#f87171',
+              border: '1px solid #7f1d1d',
+              padding: '10px 22px',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '1rem',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#dc2626';
+              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.borderColor = '#dc2626';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = '#2a1010';
+              e.currentTarget.style.color = '#f87171';
+              e.currentTarget.style.borderColor = '#7f1d1d';
+            }}
+          >
+            ⏻ Déconnexion
           </button>
         </div>
       </header>

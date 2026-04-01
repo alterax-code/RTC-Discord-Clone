@@ -112,6 +112,24 @@ export interface CreateMessageRequest {
 // WEBSOCKET EVENT TYPES
 // ============================================
 
+export interface WSReactionAddedEvent {
+  type: 'reaction_added';
+  data: {
+    message_id: string;
+    emoji: string;
+    user_id: string;
+  };
+}
+
+export interface WSReactionRemovedEvent {
+  type: 'reaction_removed';
+  data: {
+    message_id: string;
+    emoji: string;
+    user_id: string;
+  };
+}
+
 export interface WSNewMessageEvent {
   type: 'new_message';
   data: {
@@ -121,6 +139,7 @@ export interface WSNewMessageEvent {
     username: string;
     content: string;
     created_at: string;
+    message_type?: string;
   };
 }
 
@@ -162,6 +181,33 @@ export interface WSMessageHistoryEvent {
   };
 }
 
+// ★ NOUVEAUX TYPES AJOUTÉS
+
+export interface WSServerDeletedEvent {
+  type: 'server_deleted';
+  data: {
+    server_id: string;
+    deleted_by: string;
+  };
+}
+
+export interface WSChannelCreatedEvent {
+  type: 'channel_created';
+  data: {
+    server_id: string;
+    channel: { id: string; name: string; server_id: string };
+  };
+}
+
+export interface WSChannelDeletedEvent {
+  type: 'channel_deleted';
+  data: {
+    server_id: string;
+    channel_id: string;
+    deleted_by?: string;
+  };
+}
+
 export interface WSMemberJoinedEvent {
   type: 'member_joined';
   data: {
@@ -169,6 +215,40 @@ export interface WSMemberJoinedEvent {
     user_id: string;
     username: string;
     role: string;
+  };
+}
+
+export interface WSMemberLeftEvent {
+  type: 'member_left';
+  data: {
+    server_id: string;
+    user_id: string;
+  };
+}
+
+export interface WSMemberRoleUpdatedEvent {
+  type: 'member_role_updated';
+  data: {
+    server_id: string;
+    user_id: string;
+    role: string;
+    changes?: Array<{ user_id: string; role: string; new_role: string }>;
+  };
+}
+
+export interface WSMessageDeletedEvent {
+  type: 'message_deleted';
+  data: {
+    message_id: string;
+    channel_id: string;
+    deleted_by: string;
+  };
+}
+
+export interface WSErrorEvent {
+  type: 'error';
+  data: {
+    message: string;
   };
 }
 
@@ -193,31 +273,12 @@ export interface WSMemberBannedEvent {
 
 export interface WSMemberJoinedEvent {
   type: 'member_joined';
-  data: { server_id: string; user_id: string; username: string; role: string; };
-}
-export interface WSMemberLeftEvent {
-  type: 'member_left';
-  data: { server_id: string; user_id: string; };
-}
-export interface WSMemberKickedEvent {
-  type: 'member_kicked';
-  data: { server_id: string; user_id: string; reason: string; };
-}
-export interface WSMemberBannedEvent {
-  type: 'member_banned';
-  data: { server_id: string; user_id: string; reason: string; expires_at: string | null; };
-}
-export interface WSChannelCreatedEvent {
-  type: 'channel_created';
-  data: { server_id: string; channel: Channel; };
-}
-export interface WSChannelDeletedEvent {
-  type: 'channel_deleted';
-  data: { server_id: string; channel_id: string; };
-}
-export interface WSMemberRoleUpdatedEvent {
-  type: 'member_role_updated';
-  data: { server_id: string; user_id: string; role: string; changes?: Array<{ user_id: string; role: string; new_role: string }>; };
+  data: {
+    server_id: string;
+    user_id: string;
+    username: string;
+    role: string;
+  };
 }
 
 export type WSEvent =
@@ -227,13 +288,18 @@ export type WSEvent =
   | WSUserTypingEvent
   | WSOnlineUsersEvent
   | WSMessageHistoryEvent
+  | WSServerDeletedEvent
+  | WSChannelCreatedEvent
+  | WSChannelDeletedEvent
   | WSMemberJoinedEvent
   | WSMemberLeftEvent
   | WSMemberKickedEvent
   | WSMemberBannedEvent
-  | WSChannelCreatedEvent
-  | WSChannelDeletedEvent
-  | WSMemberRoleUpdatedEvent;
+  | WSMemberRoleUpdatedEvent
+  | WSMessageDeletedEvent
+  | WSErrorEvent
+  | WSReactionAddedEvent
+  | WSReactionRemovedEvent;
 
 // ============================================
 // API ERROR TYPES
