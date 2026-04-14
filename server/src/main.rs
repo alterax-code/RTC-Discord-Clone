@@ -144,7 +144,10 @@ println!("✅ SQL migration v2 applied!");
             post(handlers::create_message_http),
         )
         .route("/channels/{id}/messages", get(handlers::list_messages))
-        .route("/messages/{id}", delete(handlers::delete_message_http))
+        .route("/messages/{id}",
+            delete(handlers::delete_message_http)
+            .put(handlers::edit_message_http)
+        )
         // Ban
         .route("/servers/:server_id/members/:user_id/ban", axum::routing::post(handlers::ban_member))
         .route("/servers/:id/bans", axum::routing::get(handlers::list_bans))
