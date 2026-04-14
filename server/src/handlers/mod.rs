@@ -9,6 +9,8 @@
 //! - invitations : création d'invitations
 //! - health    : health check
 
+pub use members::{ban_member, kick_member, list_bans, list_members, unban_member, update_member_role};
+
 mod channels;
 mod health;
 mod invitations;
@@ -23,7 +25,6 @@ mod servers;
 pub use channels::{create_channel, delete_channel, get_channel, list_channels, update_channel};
 pub use health::health;
 pub use invitations::create_invitation;
-pub use members::{list_members, update_member_role};
 pub use messages::{create_message_http, delete_message_http, list_messages};
 pub use servers::{
     create_server, delete_server, get_server, join_server, join_server_by_code, leave_server,

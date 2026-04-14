@@ -12,12 +12,12 @@ pub async fn init_mongo() -> Collection<Message> {
 
     let client = Client::with_uri_str(&uri)
         .await
-        .expect("❌ MongoDB connection failed");
+        .expect(" MongoDB connection failed");
 
     let db = client.database(&db_name);
     let collection = db.collection::<Message>("messages");
 
-    println!("✅ Connected to MongoDB ({db_name})!");
+    println!("Connected to MongoDB ({db_name})!");
     collection
 }
 
@@ -30,20 +30,21 @@ pub async fn create_message(
     content: String,
 ) -> Option<Message> {
     let msg = Message {
-        id: Some(mongodb::bson::oid::ObjectId::new()),
-        channel_id,
-        user_id,
-        username,
-        content,
-        message_type: "user".to_string(),
-        created_at: mongodb::bson::DateTime::now(),
-        deleted: false,
-    };
+    id: Some(mongodb::bson::oid::ObjectId::new()),
+    channel_id,
+    user_id,
+    username,
+    content,
+    created_at: mongodb::bson::DateTime::now(),
+    deleted: false,
+    edited_at: None,
+};
+    
 
     match collection.insert_one(&msg, None).await {
         Ok(_) => Some(msg),
         Err(e) => {
-            eprintln!("❌ MongoDB insert error: {e}");
+            eprintln!(" MongoDB insert error: {e}");
             None
         }
     }
@@ -61,7 +62,7 @@ pub async fn get_messages_by_channel(
     match collection.find(filter, None).await {
         Ok(cursor) => cursor.try_collect().await.unwrap_or_default(),
         Err(e) => {
-            eprintln!("❌ MongoDB find error: {e}");
+            eprintln!(" MongoDB find error: {e}");
             Vec::new()
         }
     }
@@ -84,7 +85,7 @@ pub async fn delete_message(collection: &Collection<Message>, message_id: &str) 
     {
         Ok(result) => result.modified_count > 0,
         Err(e) => {
-            eprintln!("❌ MongoDB delete error: {e}");
+            eprintln!(" MongoDB delete error: {e}");
             false
         }
     }
@@ -119,7 +120,7 @@ pub async fn get_messages_paginated(
             msgs
         }
         Err(e) => {
-            eprintln!("❌ MongoDB paginated find error: {e}");
+            eprintln!(" MongoDB paginated find error: {e}");
             Vec::new()
         }
     }
@@ -136,3 +137,23 @@ pub async fn get_message_by_id(
         .await
         .ok()?
 }
+/// EDIT un message - modifie le contenu et ajoute edited_at
+pub async fn edit_message(
+    collection: &Collection<Message>,
+    message_id: &str,
+    new_content: &str,   
+) -> Option<Message> {
+    let object_id = mongodb::bson::oid::ObjectId::parse_str(message_id).ok()?;
+    let now = mongodb::bson::DateTime::now();
+
+    collection
+        .find_one_and_update(
+            doc! { "_id": object_id, "deleted": false },
+            doc! { "$set": { "content": new_content, "edited_at": now } },
+            mongodb::options::FindOneAndUpdateOptions::builder()
+                .return_document(mongodb::options::ReturnDocument::After)
+                .build(),
+        )
+        .await
+        .ok()?
+    }

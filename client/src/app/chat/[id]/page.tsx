@@ -1,16 +1,17 @@
-"use client";
+'use client';
 
-import React, { use, useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import ServersBar from "@/components/ServersBar";
-import ChannelsList from "@/components/ChannelsList";
-import MembersList from "@/components/MembersList";
-import MessageList from "@/components/MessageList";
-import ChatInput from "@/components/ChatInput";
-import { serversApi, channelsApi, messagesApi } from "@/lib/api";
-import { isAuthenticated, getCurrentUser, getAuthToken } from "@/lib/auth";
-import wsClient from "@/lib/websocket";
-import { Channel, WSEvent, MemberRole } from "@/lib/types";
+import React, { use, useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import ServersBar from '@/components/ServersBar';
+import ChannelsList from '@/components/ChannelsList';
+import MembersList from '@/components/MembersList';
+import MessageList from '@/components/MessageList';
+import ChatInput from '@/components/ChatInput';
+import { serversApi, channelsApi, messagesApi } from '@/lib/api';
+import { isAuthenticated, getCurrentUser } from '@/lib/auth';
+import wsClient from '@/lib/websocket';
+import { Channel, WSEvent, MemberRole } from '@/lib/types';
+
 
 // ---- Types ----
 
@@ -20,6 +21,8 @@ interface DisplayMessage {
   username: string;
   content: string;
   timestamp: string;
+  messageType?: string;
+  editedAt?: string;
 }
 
 interface DisplayMember {
@@ -254,17 +257,16 @@ export default function ChatPage({
             `ws-${Date.now()}`;
           if (messageIdsRef.current.has(msgId)) return;
           messageIdsRef.current.add(msgId);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: msgId,
-              userId: msg.user_id || "",
-              username: msg.username || "Inconnu",
-              content: msg.content || "",
-              timestamp: formatTime(msg.created_at || new Date().toISOString()),
-              messageType: msg.message_type || "user",
-            },
-          ]);
+          
+          setMessages(prev => [...prev, {
+            id: msgId,
+            userId: msg.user_id || '',
+            username: msg.username || 'Inconnu',
+            content: msg.content || '',
+            timestamp: formatTime(msg.created_at || new Date().toISOString()),
+            messageType: (msg as any).message_type || 'user',
+          }]);
+
           // Retirer typing quand message envoyé
           if (msg.user_id) {
             const timer = typingTimersRef.current.get(msg.user_id);

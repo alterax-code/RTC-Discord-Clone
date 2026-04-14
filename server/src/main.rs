@@ -64,6 +64,18 @@ async fn main() {
         }
     }
     println!("✅ SQL migration applied!");
+    
+    let migration_v2 = include_str!("../migrations/002_v2.sql");
+for statement in migration_v2.split(';') {
+    let trimmed = statement.trim();
+    if !trimmed.is_empty() {
+        sqlx::query(trimmed)
+            .execute(&pool)
+            .await
+            .expect("❌ Migration v2 failed");
+    }
+}
+println!("✅ SQL migration v2 applied!");
 
     db::assert_schema(&pool).await.ok();
 
@@ -94,6 +106,8 @@ async fn main() {
         // Auth
         .route("/auth/logout", post(auth::logout_handler))
         .route("/me", get(auth::me_handler))
+        .route("/servers/:server_id/members/:user_id/kick",
+    axum::routing::delete(handlers::kick_member))
         // Servers
         .route("/servers", post(handlers::create_server))
         .route("/servers", get(handlers::list_servers))
@@ -131,6 +145,10 @@ async fn main() {
         )
         .route("/channels/{id}/messages", get(handlers::list_messages))
         .route("/messages/{id}", delete(handlers::delete_message_http))
+        // Ban
+        .route("/servers/:server_id/members/:user_id/ban", axum::routing::post(handlers::ban_member))
+        .route("/servers/:id/bans", axum::routing::get(handlers::list_bans))
+        .route("/servers/:server_id/bans/:user_id", axum::routing::delete(handlers::unban_member))
         // Middleware auth
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),

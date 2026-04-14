@@ -1,5 +1,6 @@
 'use client';
 
+import BanModal from './BanModal';
 import { useState, useRef, useEffect } from 'react';
 
 interface Member {
@@ -16,6 +17,7 @@ interface MembersListProps {
   currentUserRole?: 'owner' | 'admin' | 'member';
   serverId?: string;
   onUpdateRole?: (userId: string, newRole: string) => void;
+  onKick?: (userId: string) => void;
 }
 
 const roleIcons: Record<string, string> = {
@@ -47,11 +49,17 @@ function TypingDots() {
 
 // ── Menu ⋯ pour un membre ──
 function MemberMenu({
-  member, currentUserRole, onUpdateRole,
+ ban-react-ladji
+  member, currentUserRole, onUpdateRole, onKick, onBanClick,
+
 }: {
   member: Member;
   currentUserRole?: string;
   onUpdateRole?: (userId: string, newRole: string) => void;
+
+  onKick?: (userId: string) => void;
+  onBanClick?: (member: Member) => void;
+
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -76,7 +84,9 @@ function MemberMenu({
   const canDemoteToMember = currentUserRole === 'owner' && member.role === 'admin';
   const canTransfer = currentUserRole === 'owner' && member.role !== 'owner';
 
-  if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer) return null;
+  const canKick = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner';
+
+if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return null;
 
   return (
     <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -136,6 +146,29 @@ function MemberMenu({
           )}
           {canTransfer && (
             <>
+            
+                {/* Kick */}
+              {(currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner' && (
+                <>
+                  <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
+                  <button
+                    onClick={() => { setOpen(false); onKick?.(member.id); }}
+                    style={{ ...itemStyle, color: '#ed4245' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    👢 Expulser
+                  </button>
+                  <button
+                    onClick={() => { setOpen(false); onBanClick?.(member); }}
+                    style={{ ...itemStyle, color: '#ed4245' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    🔨 Bannir
+                  </button>
+                </>
+              )}
               <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
               <button
                 onClick={() => {
@@ -148,6 +181,24 @@ function MemberMenu({
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
                 👑 Transférer ownership
+              </button>
+            </>
+          )}
+          {/* Séparateur + Kick */}
+          {canKick && (
+            <>
+              <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  if (confirm(`Expulser ${member.username} du serveur ?`))
+                    onKick?.(member.id);
+                }}
+                style={{ ...itemStyle, color: '#ed4245' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                🚪 Expulser (Kick)
               </button>
             </>
           )}
@@ -180,7 +231,7 @@ function MemberMenu({
 }
 
 export default function MembersList({
-  members, typingUserIds, currentUserId, currentUserRole, onUpdateRole,
+  members, typingUserIds, currentUserId, currentUserRole, serverId, onUpdateRole, onKick,
 }: MembersListProps) {
   const typing = typingUserIds || new Set<string>();
   const onlineMembers = members.filter(m => m.online);
@@ -216,6 +267,8 @@ export default function MembersList({
               member={member}
               currentUserRole={currentUserRole}
               onUpdateRole={onUpdateRole}
+              serverId={serverId}
+              onKick={onKick}
             />
           </span>
         )}

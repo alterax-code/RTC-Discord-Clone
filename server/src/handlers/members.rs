@@ -141,3 +141,200 @@ pub async fn update_member_role(
         "new_role": new_role
     })))
 }
+
+// ==================== KICK ====================
+ 
+pub async fn kick_member(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path((server_id, target_user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, StatusCode> {
+    let pool = &state.db;
+ 
+    // 1. Vérifier que le caller est admin ou owner
+    let caller_role = get_member_role(pool, user_id, server_id)
+        .await
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !super::is_admin_or_owner(&caller_role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+ 
+    // 2. Vérifier que la target est bien membre
+    let target_role = get_member_role(pool, target_user_id, server_id)
+        .await
+        .ok_or(StatusCode::NOT_FOUND)?;
+ 
+    // 3. Interdire de kicker l'owner
+    if target_role == "owner" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+ 
+    // 4. Supprimer de server_members (= le kick)
+    sqlx::query("DELETE FROM server_members WHERE user_id = $1 AND server_id = $2")
+        .bind(target_user_id)
+        .bind(server_id)
+        .execute(pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+ 
+    // 5. Broadcast WS — Ladji s'occupe de l'event côté WS handler,
+    //    on publie juste sur le bus
+    let ws_event = serde_json::json!({
+        "type": "member_kicked",
+        "data": {
+            "server_id": server_id.to_string(),
+            "user_id": target_user_id.to_string(),
+            "kicked_by": user_id.to_string()
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+ 
+    Ok(StatusCode::NO_CONTENT)
+}
+// ==================== BAN ====================
+
+#[derive(serde::Deserialize)]
+pub struct BanPayload {
+    pub reason: Option<String>,
+    pub duration_hours: Option<i64>,
+}
+
+pub async fn ban_member(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path((server_id, target_user_id)): Path<(Uuid, Uuid)>,
+    Json(payload): Json<BanPayload>,
+) -> Result<StatusCode, StatusCode> {
+    let pool = &state.db;
+
+    // 1. Vérifier que le caller est admin ou owner
+    let caller_role = get_member_role(pool, user_id, server_id)
+        .await
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !super::is_admin_or_owner(&caller_role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // 2. Vérifier que la target est membre et pas owner
+    let target_role = get_member_role(pool, target_user_id, server_id)
+        .await
+        .ok_or(StatusCode::NOT_FOUND)?;
+    if target_role == "owner" {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // 3. Calculer expires_at si durée fournie
+    let expires_at = payload.duration_hours.map(|h| {
+        (chrono::Utc::now() + chrono::Duration::hours(h)).naive_utc()
+    });
+
+    // 4. Insérer dans server_bans
+    sqlx::query(
+        "INSERT INTO server_bans (server_id, user_id, banned_by, reason, expires_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (server_id, user_id) DO UPDATE
+         SET reason = $4, expires_at = $5, banned_by = $3",
+    )
+    .bind(server_id)
+    .bind(target_user_id)
+    .bind(user_id)
+    .bind(payload.reason.unwrap_or_default())
+    .bind(expires_at)
+    .execute(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // 5. Supprimer de server_members
+    sqlx::query("DELETE FROM server_members WHERE user_id = $1 AND server_id = $2")
+        .bind(target_user_id)
+        .bind(server_id)
+        .execute(pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // 6. Broadcast WS
+    let ws_event = serde_json::json!({
+        "type": "member_banned",
+        "data": {
+            "server_id": server_id.to_string(),
+            "user_id": target_user_id.to_string(),
+            "banned_by": user_id.to_string(),
+            "expires_at": expires_at.map(|dt| dt.to_string())
+        }
+    });
+    let _ = state.bus.send(ws_event.to_string());
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn list_bans(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path(server_id): Path<Uuid>,
+) -> Result<Json<Vec<serde_json::Value>>, StatusCode> {
+    let pool = &state.db;
+
+    let caller_role = get_member_role(pool, user_id, server_id)
+        .await
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !super::is_admin_or_owner(&caller_role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct BanRow {
+        user_id: uuid::Uuid,
+        username: String,
+        reason: Option<String>,
+        expires_at: Option<chrono::NaiveDateTime>,
+        created_at: Option<chrono::NaiveDateTime>,
+    }
+
+    let bans = sqlx::query_as::<_, BanRow>(
+        "SELECT sb.user_id, sb.reason, sb.expires_at, sb.created_at, u.username
+         FROM server_bans sb
+         INNER JOIN users u ON sb.user_id = u.id
+         WHERE sb.server_id = $1
+         ORDER BY sb.created_at DESC",
+    )
+    .bind(server_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let result: Vec<serde_json::Value> = bans.iter().map(|b| serde_json::json!({
+        "user_id": b.user_id.to_string(),
+        "username": b.username,
+        "reason": b.reason,
+        "expires_at": b.expires_at.map(|dt| dt.to_string()),
+        "created_at": b.created_at.map(|dt| dt.to_string()),
+    })).collect();
+
+    Ok(Json(result))
+}
+
+pub async fn unban_member(
+    State(state): State<AppState>,
+    Extension(user_id): Extension<Uuid>,
+    Path((server_id, target_user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, StatusCode> {
+    let pool = &state.db;
+
+    let caller_role = get_member_role(pool, user_id, server_id)
+        .await
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !super::is_admin_or_owner(&caller_role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    sqlx::query(
+        "DELETE FROM server_bans WHERE server_id = $1 AND user_id = $2",
+    )
+    .bind(server_id)
+    .bind(target_user_id)
+    .execute(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
