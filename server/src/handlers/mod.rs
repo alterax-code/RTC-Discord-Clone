@@ -17,7 +17,7 @@ mod invitations;
 mod members;
 mod messages;
 mod servers;
-
+mod gifs; // Nouveau module pour la recherche de GIFs #Noémie
 // ============================================
 // RE-EXPORTS — main.rs importe toujours handlers::create_server, etc.
 // ============================================
@@ -25,12 +25,12 @@ mod servers;
 pub use channels::{create_channel, delete_channel, get_channel, list_channels, update_channel};
 pub use health::health;
 pub use invitations::create_invitation;
-pub use members::{list_members, update_member_role};
 pub use messages::{create_message_http, delete_message_http, edit_message_http, list_messages};
 pub use servers::{
     create_server, delete_server, get_server, join_server, join_server_by_code, leave_server,
     list_servers, update_server,
 };
+pub use gifs::search_gifs; // Export du handler de recherche de GIFs #Noémie
 
 // ============================================
 // HELPERS PARTAGÉS — utilisés par tous les sous-modules

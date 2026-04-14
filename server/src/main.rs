@@ -152,6 +152,7 @@ println!("✅ SQL migration v2 applied!");
         .route("/servers/:server_id/members/:user_id/ban", axum::routing::post(handlers::ban_member))
         .route("/servers/:id/bans", axum::routing::get(handlers::list_bans))
         .route("/servers/:server_id/bans/:user_id", axum::routing::delete(handlers::unban_member))
+        .route("/gif/search", get(handlers::search_gifs))
         // Middleware auth
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
