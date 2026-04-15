@@ -1,14 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import LoginForm from '@/components/LoginForm';
 import RegisterForm from '@/components/RegisterForm';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>(
+    searchParams.get('tab') === 'register' ? 'register' : 'login'
+  );
   const t = useTranslations();
+
+  const handleTabChange = (tab: 'login' | 'register') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `?tab=${tab}`);
+    }
+  };
 
   return (
     <div className="auth-page">
@@ -22,13 +33,13 @@ export default function LoginPage() {
         <div className="auth-tabs">
           <button
             className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
-            onClick={() => setActiveTab('login')}
+            onClick={() => handleTabChange('login')}
           >
             {t('auth.login')}
           </button>
           <button
             className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
-            onClick={() => setActiveTab('register')}
+            onClick={() => handleTabChange('register')}
           >
             {t('auth.register')}
           </button>

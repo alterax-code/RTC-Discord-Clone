@@ -1,8 +1,10 @@
 'use client';
 
-import BanModal from './BanModal';
 import { useState, useRef, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { getAuthToken } from '@/lib/auth';
+import BanModal from './BanModal';
 
 interface Member {
   id: string;
@@ -49,17 +51,13 @@ function TypingDots() {
 }
 
 function MemberMenu({
- ban-react-ladji
   member, currentUserRole, onUpdateRole, onKick, onBanClick,
-
 }: {
   member: Member;
   currentUserRole?: string;
   onUpdateRole?: (userId: string, newRole: string) => void;
-
   onKick?: (userId: string) => void;
   onBanClick?: (member: Member) => void;
-
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,10 +82,9 @@ function MemberMenu({
   const canPromoteToAdmin = currentUserRole === 'owner' && member.role === 'member';
   const canDemoteToMember = currentUserRole === 'owner' && member.role === 'admin';
   const canTransfer = currentUserRole === 'owner' && member.role !== 'owner';
-
   const canKick = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner';
 
-if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return null;
+  if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return null;
 
   return (
     <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -104,7 +101,6 @@ if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return
         ⋯
       </button>
 
-      {/* ★ FIX: Dropdown en position fixed pour ne jamais être coupé */}
       {open && (
         <div style={{
           position: 'fixed',
@@ -115,13 +111,12 @@ if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return
           boxShadow: '0 12px 40px rgba(0,0,0,0.8)', overflow: 'hidden',
           padding: '4px 0',
         }}>
-          {/* Header du menu */}
           <div style={{
             padding: '8px 14px', fontSize: '11px', fontWeight: 700,
             color: '#8e9297', textTransform: 'uppercase', letterSpacing: '0.5px',
             borderBottom: '1px solid #3f4147',
           }}>
-            Gérer {member.username}
+            {t('members.manage', { username: member.username })}
           </div>
 
           {canPromoteToAdmin && (
@@ -146,29 +141,6 @@ if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return
           )}
           {canTransfer && (
             <>
-            
-                {/* Kick */}
-              {(currentUserRole === 'owner' || currentUserRole === 'admin') && member.role !== 'owner' && (
-                <>
-                  <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
-                  <button
-                    onClick={() => { setOpen(false); onKick?.(member.id); }}
-                    style={{ ...itemStyle, color: '#ed4245' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    👢 Expulser
-                  </button>
-                  <button
-                    onClick={() => { setOpen(false); onBanClick?.(member); }}
-                    style={{ ...itemStyle, color: '#ed4245' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    🔨 Bannir
-                  </button>
-                </>
-              )}
               <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
               <button
                 onClick={() => {
@@ -184,26 +156,32 @@ if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return
               </button>
             </>
           )}
-          {/* Séparateur + Kick */}
           {canKick && (
             <>
               <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
               <button
                 onClick={() => {
                   setOpen(false);
-                  if (confirm(`Expulser ${member.username} du serveur ?`))
+                  if (confirm(t('members.kick_confirm', { username: member.username })))
                     onKick?.(member.id);
                 }}
                 style={{ ...itemStyle, color: '#ed4245' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
-                🚪 Expulser (Kick)
+                👢 {t('members.kick')}
+              </button>
+              <button
+                onClick={() => { setOpen(false); onBanClick?.(member); }}
+                style={{ ...itemStyle, color: '#ed4245' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#ed424520')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                🔨 {t('members.ban')}
               </button>
             </>
           )}
 
-          {/* Bouton fermer */}
           <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
           <button
             onClick={() => setOpen(false)}
@@ -211,12 +189,11 @@ if (!canPromoteToAdmin && !canDemoteToMember && !canTransfer && !canKick) return
             onMouseEnter={e => (e.currentTarget.style.background = '#2b2d31')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
           >
-            Annuler
+            {t('common.cancel')}
           </button>
         </div>
       )}
 
-      {/* ★ Backdrop sombre quand le menu est ouvert */}
       {open && (
         <div
           onClick={() => setOpen(false)}
@@ -234,9 +211,38 @@ export default function MembersList({
   members, typingUserIds, currentUserId, currentUserRole, serverId, onUpdateRole, onKick,
 }: MembersListProps) {
   const t = useTranslations();
+  const { locale } = useParams();
+  const router = useRouter();
+  const [banTarget, setBanTarget] = useState<Member | null>(null);
   const typing = typingUserIds || new Set<string>();
   const onlineMembers = members.filter(m => m.online);
   const offlineMembers = members.filter(m => !m.online);
+
+  const handleKick = async (userId: string) => {
+    if (onKick) { onKick(userId); return; }
+    if (!serverId) return;
+    const token = getAuthToken();
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/servers/${serverId}/members/${userId}/kick`,
+      { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+  };
+
+  const handleBan = async (userId: string, reason: string, durationHours: number | null) => {
+    if (!serverId) return;
+    const token = getAuthToken();
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/servers/${serverId}/members/${userId}/ban`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reason, duration_hours: durationHours }),
+      }
+    );
+  };
 
   const renderMember = (member: Member) => {
     const isTyping = typing.has(member.id);
@@ -253,15 +259,46 @@ export default function MembersList({
           {roleIcons[member.role]} {member.username}
           {isTyping && <TypingDots />}
         </span>
-        {canManageThis && (
+        {!isMe && (
           <span className="member-actions">
-            <MemberMenu
-              member={member}
-              currentUserRole={currentUserRole}
-              onUpdateRole={onUpdateRole}
-              serverId={serverId}
-              onKick={onKick}
-            />
+            <button
+              title={t('members.direct_message')}
+              className="dm-btn"
+              onClick={async () => {
+                const token = getAuthToken();
+                try {
+                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dm/start`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ user_id: member.id }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    router.push(`/${locale}/dm/${data.id}`);
+                  }
+                } catch {}
+              }}
+              style={{
+                background: 'none', border: 'none', color: '#8e9297',
+                cursor: 'pointer', fontSize: '14px', padding: '0 4px',
+                lineHeight: 1, borderRadius: '4px',
+                opacity: 0, transition: 'opacity 0.1s',
+              }}
+            >
+              💬
+            </button>
+            {canManageThis && (
+              <MemberMenu
+                member={member}
+                currentUserRole={currentUserRole}
+                onUpdateRole={onUpdateRole}
+                onKick={handleKick}
+                onBanClick={(m) => setBanTarget(m)}
+              />
+            )}
           </span>
         )}
       </div>
@@ -272,6 +309,7 @@ export default function MembersList({
     <div className="members-list">
       <style>{`
         .member-item:hover .member-actions .member-menu-btn { opacity: 1 !important; }
+        .member-item:hover .member-actions .dm-btn { opacity: 1 !important; }
         .member-actions { display: flex; align-items: center; }
       `}</style>
 
@@ -293,6 +331,15 @@ export default function MembersList({
           </div>
         )}
       </div>
+
+      {banTarget && serverId && (
+        <BanModal
+          member={banTarget}
+          serverId={serverId}
+          onClose={() => setBanTarget(null)}
+          onBan={handleBan}
+        />
+      )}
     </div>
   );
 }

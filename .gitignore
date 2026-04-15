@@ -54,3 +54,8 @@ coverage/
 .cache/
 dist/
 rtc_all_files/
+
+CLAUDE_CODE_PROMPT.md
+CLAUDE.md
+.claude/
+*.local.md

@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface ServerCardProps {
   server: {
     id: string;
@@ -11,6 +13,7 @@ interface ServerCardProps {
 }
 
 export default function ServerCard({ server, onClick }: ServerCardProps) {
+  const t = useTranslations();
   return (
     <div className="server-card" onClick={onClick}>
       <div className="server-icon">
@@ -23,7 +26,7 @@ export default function ServerCard({ server, onClick }: ServerCardProps) {
         )}
       </div>
       <button className="server-open-btn">
-        Ouvrir →
+        {t('servers.open')}
       </button>
     </div>
   );

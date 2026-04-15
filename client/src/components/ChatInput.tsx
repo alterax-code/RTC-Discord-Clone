@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, KeyboardEvent } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface ChatInputProps {
   onSendMessage: (content: string, type?: string) => void;
@@ -14,6 +15,7 @@ interface GifResult {
 }
 
 export default function ChatInput({ onSendMessage, onTyping, token }: ChatInputProps) {
+  const t = useTranslations();
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -63,7 +65,7 @@ export default function ChatInput({ onSendMessage, onTyping, token }: ChatInputP
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
-      const results: GifResult[] = (data || []).map((url: string) => ({ url, preview: url }));
+      const results: GifResult[] = (data || []).map((item: { url: string }) => ({ url: item.url, preview: item.url }));
       setGifs(results);
     } catch (err) {
       console.error('Erreur recherche GIF:', err);
@@ -94,7 +96,7 @@ export default function ChatInput({ onSendMessage, onTyping, token }: ChatInputP
               value={gifSearch}
               onChange={(e) => setGifSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGifSearch()}
-              placeholder="Rechercher un GIF..."
+              placeholder={t('chat.gif_placeholder')}
               style={{
                 flex: 1, padding: '8px', borderRadius: '4px',
                 background: '#2b2d31', border: '1px solid #3f4147',
@@ -110,7 +112,7 @@ export default function ChatInput({ onSendMessage, onTyping, token }: ChatInputP
             </button>
           </div>
           {gifLoading && (
-            <p style={{ color: '#a3a3a3', fontSize: '13px', textAlign: 'center' }}>Chargement...</p>
+            <p style={{ color: '#a3a3a3', fontSize: '13px', textAlign: 'center' }}>{t('common.loading')}</p>
           )}
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr',
@@ -125,19 +127,19 @@ export default function ChatInput({ onSendMessage, onTyping, token }: ChatInputP
             ))}
           </div>
           {gifs.length === 0 && !gifLoading && (
-            <p style={{ color: '#a3a3a3', fontSize: '13px', textAlign: 'center' }}>Recherche un GIF ci-dessus 👆</p>
+            <p style={{ color: '#a3a3a3', fontSize: '13px', textAlign: 'center' }}>{t('chat.gif_empty')}</p>
           )}
         </div>
       )}
       <div className="chat-input-wrapper">
-        <button onClick={() => setShowGifPicker(o => !o)} title="Envoyer un GIF"
+        <button onClick={() => setShowGifPicker(o => !o)} title={t('chat.send_gif')}
           style={{ background: 'none', border: 'none', color: '#8e9297', cursor: 'pointer', fontSize: '16px', padding: '0 8px', fontWeight: 'bold' }}>
           GIF
         </button>
         <input
           type="text"
           className="chat-input"
-          placeholder="Envoyer un message..."
+          placeholder={t('chat.send_placeholder')}
           value={message}
           onChange={handleChange}
           onKeyDown={handleKeyDown}

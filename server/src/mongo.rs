@@ -4,7 +4,7 @@
 use mongodb::{bson::doc, Client, Collection};
 use std::env;
 
-use crate::models::Message;
+use crate::models::{DmMessage, Message};
 
 pub async fn init_mongo() -> Collection<Message> {
     let uri = env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
@@ -30,16 +30,16 @@ pub async fn create_message(
     content: String,
 ) -> Option<Message> {
     let msg = Message {
-    id: Some(mongodb::bson::oid::ObjectId::new()),
-    channel_id,
-    user_id,
-    username,
-    content,
-    created_at: mongodb::bson::DateTime::now(),
-    deleted: false,
-    edited_at: None,
-};
-    
+        id: Some(mongodb::bson::oid::ObjectId::new()),
+        channel_id,
+        user_id,
+        username,
+        content,
+        created_at: mongodb::bson::DateTime::now(),
+        deleted: false,
+        edited_at: None,
+        reactions: None,
+    };
 
     match collection.insert_one(&msg, None).await {
         Ok(_) => Some(msg),
@@ -90,7 +90,6 @@ pub async fn delete_message(collection: &Collection<Message>, message_id: &str) 
         }
     }
 }
-
 
 /// READ avec pagination : limit + before (timestamp ms)
 pub async fn get_messages_paginated(
@@ -192,6 +191,132 @@ pub async fn add_reaction(
                 Ok(result) => result.modified_count > 0,
                 Err(_) => false,
             }
+        }
+    }
+}
+
+/// Initialise la collection MongoDB pour les DMs
+pub async fn init_dm_mongo() -> Collection<DmMessage> {
+    let uri = env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+    let db_name = env::var("MONGODB_DATABASE").unwrap_or_else(|_| "rtc".to_string());
+
+    let client = Client::with_uri_str(&uri)
+        .await
+        .expect("MongoDB DM connection failed");
+
+    client
+        .database(&db_name)
+        .collection::<DmMessage>("dm_messages")
+}
+
+/// CREATE DM message
+pub async fn create_dm_message(
+    collection: &Collection<DmMessage>,
+    conversation_id: String,
+    user_id: String,
+    username: String,
+    content: String,
+) -> Option<DmMessage> {
+    let msg = DmMessage {
+        id: Some(mongodb::bson::oid::ObjectId::new()),
+        conversation_id,
+        user_id,
+        username,
+        content,
+        created_at: mongodb::bson::DateTime::now(),
+        reactions: None,
+    };
+
+    match collection.insert_one(&msg, None).await {
+        Ok(_) => Some(msg),
+        Err(e) => {
+            eprintln!("MongoDB DM insert error: {e}");
+            None
+        }
+    }
+}
+
+/// READ DM messages for a conversation (chronological)
+pub async fn get_dm_messages_by_conversation(
+    collection: &Collection<DmMessage>,
+    conversation_id: &str,
+) -> Vec<DmMessage> {
+    use futures::TryStreamExt;
+    use mongodb::options::FindOptions;
+
+    let filter = doc! { "conversation_id": conversation_id };
+    let options = FindOptions::builder()
+        .sort(doc! { "created_at": 1_i32 })
+        .build();
+
+    match collection.find(filter, options).await {
+        Ok(cursor) => cursor.try_collect().await.unwrap_or_default(),
+        Err(e) => {
+            eprintln!("MongoDB DM find error: {e}");
+            Vec::new()
+        }
+    }
+}
+
+/// Ajouter une réaction à un DM message
+pub async fn add_dm_reaction(
+    collection: &Collection<DmMessage>,
+    message_id: &str,
+    emoji: &str,
+    user_id: &str,
+) -> bool {
+    let object_id = match mongodb::bson::oid::ObjectId::parse_str(message_id) {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+
+    match collection
+        .update_one(
+            doc! { "_id": object_id, "reactions.emoji": emoji },
+            doc! { "$addToSet": { "reactions.$.user_ids": user_id } },
+            None,
+        )
+        .await
+    {
+        Ok(result) if result.modified_count > 0 => true,
+        _ => match collection
+            .update_one(
+                doc! { "_id": object_id },
+                doc! { "$push": { "reactions": { "emoji": emoji, "user_ids": [user_id] } } },
+                None,
+            )
+            .await
+        {
+            Ok(result) => result.modified_count > 0,
+            Err(_) => false,
+        },
+    }
+}
+
+/// Retirer une réaction d'un DM message
+pub async fn remove_dm_reaction(
+    collection: &Collection<DmMessage>,
+    message_id: &str,
+    emoji: &str,
+    user_id: &str,
+) -> bool {
+    let object_id = match mongodb::bson::oid::ObjectId::parse_str(message_id) {
+        Ok(id) => id,
+        Err(_) => return false,
+    };
+
+    match collection
+        .update_one(
+            doc! { "_id": object_id, "reactions.emoji": emoji },
+            doc! { "$pull": { "reactions.$.user_ids": user_id } },
+            None,
+        )
+        .await
+    {
+        Ok(result) => result.modified_count > 0,
+        Err(e) => {
+            eprintln!("MongoDB remove_dm_reaction error: {e}");
+            false
         }
     }
 }

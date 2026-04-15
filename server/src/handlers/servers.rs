@@ -7,9 +7,9 @@ use axum::{
 };
 use uuid::Uuid;
 
+use super::{generate_invite_code, get_member_role, get_username};
 use crate::models::*;
 use crate::AppState;
-use super::{generate_invite_code, get_member_role, get_username};
 
 // ==================== CREATE ====================
 
@@ -217,27 +217,27 @@ pub async fn join_server(
 
     let existing = get_member_role(pool, user_id, server_id).await;
 
-if existing.is_some() {
-    return Err(StatusCode::CONFLICT);
-}
+    if existing.is_some() {
+        return Err(StatusCode::CONFLICT);
+    }
 
-// Vérifier si l'utilisateur est banni
-let is_banned = sqlx::query_scalar::<_, bool>(
-    "SELECT EXISTS(
+    // Vérifier si l'utilisateur est banni
+    let is_banned = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
         SELECT 1 FROM server_bans
         WHERE server_id = $1 AND user_id = $2
         AND (expires_at IS NULL OR expires_at > NOW())
-    )"
-)
-.bind(server_id)
-.bind(user_id)
-.fetch_one(pool)
-.await
-.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    )",
+    )
+    .bind(server_id)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-if is_banned {
-    return Err(StatusCode::FORBIDDEN);
-}
+    if is_banned {
+        return Err(StatusCode::FORBIDDEN);
+    }
 
     sqlx::query("INSERT INTO server_members (user_id, server_id, role) VALUES ($1, $2, 'member')")
         .bind(user_id)
@@ -304,6 +304,23 @@ pub async fn join_server_by_code(
     let existing = get_member_role(pool, user_id, server.id).await;
     if existing.is_some() {
         return Err(StatusCode::CONFLICT);
+    }
+
+    let is_banned = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+            SELECT 1 FROM server_bans
+            WHERE server_id = $1 AND user_id = $2
+            AND (expires_at IS NULL OR expires_at > NOW())
+        )",
+    )
+    .bind(server.id)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if is_banned {
+        return Err(StatusCode::FORBIDDEN);
     }
 
     sqlx::query("INSERT INTO server_members (user_id, server_id, role) VALUES ($1, $2, 'member')")

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface BanModalProps {
   member: { id: string; username: string };
@@ -10,6 +11,7 @@ interface BanModalProps {
 }
 
 export default function BanModal({ member, serverId, onClose, onBan }: BanModalProps) {
+  const t = useTranslations();
   const [reason, setReason] = useState('');
   const [duration, setDuration] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function BanModal({ member, serverId, onClose, onBan }: BanModalP
       await onBan(member.id, reason, durationHours);
       onClose();
     } catch (err) {
-      setError('Erreur lors du bannissement');
+      setError(t('ban.error'));
     } finally {
       setLoading(false);
     }
@@ -35,34 +37,32 @@ export default function BanModal({ member, serverId, onClose, onBan }: BanModalP
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Bannir {member.username}</h2>
+          <h2>{t('ban.title', { username: member.username })}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="ban-reason">Raison (optionnel)</label>
+            <label htmlFor="ban-reason">{t('ban.reason_label')}</label>
             <input
               id="ban-reason"
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Raison du bannissement..."
+              placeholder={t('ban.reason_placeholder')}
               maxLength={200}
               disabled={loading}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="ban-duration">
-              Durée en heures (laisser vide = ban permanent)
-            </label>
+            <label htmlFor="ban-duration">{t('ban.duration_label')}</label>
             <input
               id="ban-duration"
               type="number"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              placeholder="Ex: 24 pour 24h, vide = permanent"
+              placeholder={t('ban.duration_placeholder')}
               min={1}
               disabled={loading}
             />
@@ -77,14 +77,14 @@ export default function BanModal({ member, serverId, onClose, onBan }: BanModalP
               onClick={onClose}
               disabled={loading}
             >
-              Annuler
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               className="btn-primary-red"
               disabled={loading}
             >
-              {loading ? 'Bannissement...' : 'Bannir'}
+              {loading ? t('ban.banning') : t('ban.ban_btn')}
             </button>
           </div>
         </form>

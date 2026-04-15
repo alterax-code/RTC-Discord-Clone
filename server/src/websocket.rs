@@ -84,7 +84,9 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
         "type": "online_users",
         "data": online_list
     });
-    let _ = sender.send(WsMessage::Text(list_event.to_string().into())).await;
+    let _ = sender
+        .send(WsMessage::Text(list_event.to_string().into()))
+        .await;
 
     let bus = state.bus.clone();
     let user_id_clone = user_id.clone();
@@ -119,11 +121,15 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                         match event_type {
                             Some("new_message") => {
                                 let channel_id = event
-                                    .get("data").and_then(|d| d.get("channel_id"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("channel_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
                                 let content = event
-                                    .get("data").and_then(|d| d.get("content"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("content"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
 
                                 if !content.is_empty() {
                                     let saved = crate::mongo::create_message(
@@ -132,7 +138,8 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                                         user_id_clone.clone(),
                                         username_clone.clone(),
                                         content.to_string(),
-                                    ).await;
+                                    )
+                                    .await;
 
                                     if let Some(msg) = saved {
                                         let broadcast_event = serde_json::json!({
@@ -179,8 +186,10 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                             }
                             Some("typing") | Some("user_typing") => {
                                 let channel_id = event
-                                    .get("data").and_then(|d| d.get("channel_id"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("channel_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
 
                                 let typing_event = serde_json::json!({
                                     "type": "user_typing",
@@ -194,13 +203,16 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                             }
                             Some("get_history") | Some("message_history") => {
                                 let channel_id = event
-                                    .get("data").and_then(|d| d.get("channel_id"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("channel_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
 
                                 let messages = crate::mongo::get_messages_by_channel(
                                     &state.messages,
                                     channel_id,
-                                ).await;
+                                )
+                                .await;
 
                                 let history_event = serde_json::json!({
                                     "type": "message_history",
@@ -213,14 +225,20 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                             }
                             Some("kick_member") => {
                                 let server_id = event
-                                    .get("data").and_then(|d| d.get("server_id"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("server_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
                                 let target_user_id = event
-                                    .get("data").and_then(|d| d.get("user_id"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("user_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
                                 let reason = event
-                                    .get("data").and_then(|d| d.get("reason"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("reason"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
 
                                 let kick_event = serde_json::json!({
                                     "type": "member_kicked",
@@ -234,11 +252,15 @@ async fn handle_socket(socket: WebSocket, state: AppState, user_id: String, user
                             }
                             Some("dm_message") => {
                                 let to_user_id = event
-                                    .get("data").and_then(|d| d.get("to_user_id"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("to_user_id"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
                                 let content = event
-                                    .get("data").and_then(|d| d.get("content"))
-                                    .and_then(|c| c.as_str()).unwrap_or("");
+                                    .get("data")
+                                    .and_then(|d| d.get("content"))
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("");
 
                                 let dm_event = serde_json::json!({
                                     "type": "dm_message",

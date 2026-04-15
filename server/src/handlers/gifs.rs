@@ -1,14 +1,10 @@
-//! GIF Search - Proxy vers l'API Giphy
+//! GIF Search - Proxy vers l'API Tenor
 //! Responsable: Noémie
 //!
-//! Ce fichier fait le lien entre le frontend et Giphy.
-//! Le frontend demande des GIFs → on appelle Giphy → on renvoie les URLs.
+//! Ce fichier fait le lien entre le frontend et Tenor.
+//! Le frontend demande des GIFs → on appelle Tenor → on renvoie les URLs.
 
-use axum::{
-    extract::Query,
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::Query, Json};
 use serde::{Deserialize, Serialize};
 
 // ==================== STRUCTS ====================
@@ -26,67 +22,68 @@ pub struct GifResult {
     pub title: String,
 }
 
-/// La réponse complète de Giphy
+/// La réponse complète de Tenor v2
 #[derive(Deserialize)]
-struct GiphyResponse {
-    data: Vec<GiphyGif>,
+struct TenorResponse {
+    results: Vec<TenorGif>,
 }
 
-/// Un GIF dans la réponse Giphy
+/// Un GIF dans la réponse Tenor
 #[derive(Deserialize)]
-struct GiphyGif {
+struct TenorGif {
     title: String,
-    images: GiphyImages,
+    media_formats: TenorMediaFormats,
 }
 
-/// Les formats disponibles pour un GIF sur Giphy
+/// Les formats disponibles pour un GIF sur Tenor
 #[derive(Deserialize)]
-struct GiphyImages {
-    original: GiphyImageItem,
+struct TenorMediaFormats {
+    gif: TenorMediaItem,
 }
 
 /// Un format spécifique avec son URL
 #[derive(Deserialize)]
-struct GiphyImageItem {
+struct TenorMediaItem {
     url: String,
 }
 
 // ==================== HANDLER ====================
 
-pub async fn search_gifs(
-    Query(params): Query<GifSearchQuery>,
-) -> Result<Json<Vec<GifResult>>, StatusCode> {
-    // 1. Lire la clé API Giphy depuis le .env
-    let api_key = std::env::var("GIPHY_API_KEY")
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+pub async fn search_gifs(Query(params): Query<GifSearchQuery>) -> Json<Vec<GifResult>> {
+    // 1. Lire la clé API Tenor depuis le .env
+    let api_key = match std::env::var("TENOR_API_KEY") {
+        Ok(k) => k,
+        Err(_) => return Json(vec![]),
+    };
 
-    // 2. Construire l'URL de recherche Giphy
+    // 2. Construire l'URL de recherche Tenor
     let url = format!(
-        "https://api.giphy.com/v1/gifs/search?q={}&api_key={}&limit=20",
+        "https://tenor.googleapis.com/v2/search?q={}&key={}&limit=20&media_filter=gif",
         params.q, api_key
     );
 
-    // 3. Appeler Giphy
-    let response = reqwest::get(&url)
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    // 3. Appeler Tenor
+    let response = match reqwest::get(&url).await {
+        Ok(r) => r,
+        Err(_) => return Json(vec![]),
+    };
 
-    // 4. Lire la réponse JSON de Giphy
-    let giphy_data = response
-        .json::<GiphyResponse>()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    // 4. Lire la réponse JSON de Tenor
+    let tenor_data = match response.json::<TenorResponse>().await {
+        Ok(d) => d,
+        Err(_) => return Json(vec![]),
+    };
 
     // 5. Extraire juste les URLs et titres pour le frontend
-    let gifs: Vec<GifResult> = giphy_data
-        .data
+    let gifs: Vec<GifResult> = tenor_data
+        .results
         .into_iter()
         .map(|gif| GifResult {
-            url: gif.images.original.url,
+            url: gif.media_formats.gif.url,
             title: gif.title,
         })
         .collect();
 
     // 6. Renvoyer la liste de GIFs au frontend
-    Ok(Json(gifs))
+    Json(gifs)
 }

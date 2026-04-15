@@ -7,10 +7,10 @@ use axum::{
 };
 use uuid::Uuid;
 
+use super::{get_member_role, is_admin_or_owner};
 use crate::models::*;
 use crate::mongo;
 use crate::AppState;
-use super::{get_member_role, is_admin_or_owner};
 
 // ==================== CREATE ====================
 
@@ -79,13 +79,9 @@ pub async fn list_messages(
     axum::extract::Query(q): axum::extract::Query<MessagesQuery>,
 ) -> Json<Vec<Message>> {
     let limit = q.limit.unwrap_or(50).max(1).min(200);
-    let messages = mongo::get_messages_paginated(
-        &state.messages,
-        &channel_id.to_string(),
-        limit,
-        q.before,
-    )
-    .await;
+    let messages =
+        mongo::get_messages_paginated(&state.messages, &channel_id.to_string(), limit, q.before)
+            .await;
     Json(messages)
 }
 
@@ -176,7 +172,7 @@ pub async fn edit_message_http(
         "data": {
             "message_id": message_id,
             "channel_id": msg.channel_id,
-            "new_content": payload.content,
+            "content": payload.content,
             "edited_at": updated.edited_at.map(|d| d.to_string())
         }
     });

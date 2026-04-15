@@ -1,17 +1,18 @@
 'use client';
 
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 export default function LanguageSwitcher() {
   const { locale } = useParams();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const toggleLocale = () => {
     const nextLocale = locale === 'fr' ? 'en' : 'fr';
-    // Remplace /fr/... par /en/... ou l'inverse
     const newPath = pathname.replace(`/${locale}`, `/${nextLocale}`);
-    router.push(newPath);
+    const search = searchParams.toString();
+    router.push(search ? `${newPath}?${search}` : newPath);
   };
 
   return (
@@ -28,7 +29,7 @@ export default function LanguageSwitcher() {
         fontWeight: 600,
       }}
     >
-      {locale === 'fr' ? '🇬🇧 EN' : '🇫🇷 FR'}
+      {locale === 'fr' ? 'EN' : 'FR'}
     </button>
   );
 }

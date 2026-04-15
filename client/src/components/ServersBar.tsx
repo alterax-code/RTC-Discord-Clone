@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { serversApi } from "@/lib/api";
 import { getCurrentUser, logout } from "@/lib/auth";
 import { Server } from "@/lib/types";
@@ -12,6 +13,8 @@ interface ServersBarProps {
 
 export default function ServersBar({ currentServerId }: ServersBarProps) {
   const router = useRouter();
+  const { locale } = useParams();
+  const t = useTranslations();
   const [servers, setServers] = useState<Server[]>([]);
   const currentUser = getCurrentUser();
 
@@ -24,11 +27,11 @@ export default function ServersBar({ currentServerId }: ServersBarProps) {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
+    router.push(`/${locale}/login`);
   };
 
   const handleBack = () => {
-    router.push("/servers");
+    router.push(`/${locale}/servers`);
   };
 
   return (
@@ -38,8 +41,8 @@ export default function ServersBar({ currentServerId }: ServersBarProps) {
         <button
           className="sb-btn-back"
           onClick={handleBack}
-          title="Retour aux serveurs"
-          aria-label="Retour"
+          title={t('nav.back_to_servers')}
+          aria-label={t('nav.back')}
         >
           <span className="sb-back-arrow">&#8592;</span>
         </button>
@@ -57,7 +60,7 @@ export default function ServersBar({ currentServerId }: ServersBarProps) {
               {isActive && <div className="sb-active-pill" />}
               <button
                 className={`sb-server-bubble ${isActive ? "active" : ""}`}
-                onClick={() => router.push(`/chat/${server.id}`)}
+                onClick={() => router.push(`/${locale}/chat/${server.id}`)}
                 title={server.name}
               >
                 {initials}
@@ -88,7 +91,7 @@ export default function ServersBar({ currentServerId }: ServersBarProps) {
         <button
           className="sb-btn sb-btn-logout"
           onClick={handleLogout}
-          title="Se déconnecter"
+          title={t('nav.logout')}
         >
           <span className="sb-btn-icon">⏻</span>
         </button>

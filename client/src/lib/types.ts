@@ -274,6 +274,28 @@ export interface WSMemberBannedEvent {
   };
 }
 
+export interface WSMessageEditedEvent {
+  type: 'message_edited';
+  data: {
+    message_id: string;
+    channel_id: string;
+    content: string;
+    edited_at: string;
+  };
+}
+
+export interface WSDmMessageEvent {
+  type: 'dm_message';
+  data: {
+    conversation_id: string;
+    id: string;
+    user_id: string;
+    username: string;
+    content: string;
+    created_at: string;
+  };
+}
+
 export type WSEvent =
   | WSNewMessageEvent
   | WSUserOnlineEvent
@@ -292,7 +314,9 @@ export type WSEvent =
   | WSMessageDeletedEvent
   | WSErrorEvent
   | WSReactionAddedEvent
-  | WSReactionRemovedEvent;
+  | WSReactionRemovedEvent
+  | WSMessageEditedEvent
+  | WSDmMessageEvent;
 
 // ============================================
 // API ERROR TYPES

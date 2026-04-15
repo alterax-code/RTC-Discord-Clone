@@ -8,6 +8,7 @@ import CreateServerModal from '@/components/CreateServerModal';
 import JoinServerModal from '@/components/JoinServerModal';
 import EmptyServers from '@/components/EmptyServers';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { serversApi } from '@/lib/api';
 import { isAuthenticated, getCurrentUser, logout } from '@/lib/auth';
 import { Server } from '@/lib/types';
@@ -88,15 +89,19 @@ export default function ServersPage() {
       <header className="servers-header">
         <h1>{t('servers.title')} {username && <span style={{ fontSize: '0.9rem', color: '#8e9297', fontWeight: 400 }}>— {username}</span>}</h1>
         <div className="servers-actions">
+          <LanguageSwitcher />
           <button className="btn-primary-red" onClick={() => setShowCreateModal(true)}>
             + {t('servers.create')}
           </button>
           <button className="btn-secondary" onClick={() => setShowJoinModal(true)}>
             {t('servers.join')} via code
           </button>
+          <button className="btn-secondary" onClick={() => router.push(`/${locale}/dm`)}>
+            💬 DMs
+          </button>
           <button
             onClick={handleLogout}
-            title="Se déconnecter"
+            title={t('servers.logout')}
             style={{
               background: '#2a1010',
               color: '#f87171',
@@ -118,7 +123,7 @@ export default function ServersPage() {
               e.currentTarget.style.borderColor = '#7f1d1d';
             }}
           >
-            ⏻ Déconnexion
+            ⏻ {t('servers.logout')}
           </button>
         </div>
       </header>

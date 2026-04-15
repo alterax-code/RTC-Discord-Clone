@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface Ban {
   user_id: string;
@@ -17,11 +18,11 @@ interface BanListPageProps {
 }
 
 export default function BanListPage({ serverId, token, onClose }: BanListPageProps) {
+  const t = useTranslations();
   const [bans, setBans] = useState<Ban[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Charger la liste des bans
   useEffect(() => {
     const fetchBans = async () => {
       try {
@@ -29,11 +30,11 @@ export default function BanListPage({ serverId, token, onClose }: BanListPagePro
           `${process.env.NEXT_PUBLIC_API_URL}/servers/${serverId}/bans`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (!res.ok) throw new Error('Erreur lors du chargement');
+        if (!res.ok) throw new Error('error');
         const data = await res.json();
         setBans(data);
       } catch (err) {
-        setError('Impossible de charger les bans');
+        setError(t('ban.load_error'));
       } finally {
         setLoading(false);
       }
@@ -41,9 +42,8 @@ export default function BanListPage({ serverId, token, onClose }: BanListPagePro
     fetchBans();
   }, [serverId, token]);
 
-  // Unban un membre
   const handleUnban = async (userId: string) => {
-    if (!confirm('Débannir ce membre ?')) return;
+    if (!confirm(t('ban.unban_confirm'))) return;
     try {
       await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/servers/${serverId}/bans/${userId}`,
@@ -51,7 +51,7 @@ export default function BanListPage({ serverId, token, onClose }: BanListPagePro
       );
       setBans(prev => prev.filter(b => b.user_id !== userId));
     } catch {
-      setError('Erreur lors du débannissement');
+      setError(t('ban.unban_error'));
     }
   };
 
@@ -60,15 +60,15 @@ export default function BanListPage({ serverId, token, onClose }: BanListPagePro
       <div className="modal-content" onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: '600px', width: '100%' }}>
         <div className="modal-header">
-          <h2>🔨 Membres bannis</h2>
+          <h2>🔨 {t('ban.list_title')}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
-        {loading && <p style={{ color: '#a3a3a3', padding: '20px' }}>Chargement...</p>}
+        {loading && <p style={{ color: '#a3a3a3', padding: '20px' }}>{t('common.loading')}</p>}
         {error && <div className="error-message">{error}</div>}
 
         {!loading && bans.length === 0 && (
-          <p style={{ color: '#a3a3a3', padding: '20px' }}>Aucun membre banni.</p>
+          <p style={{ color: '#a3a3a3', padding: '20px' }}>{t('ban.none')}</p>
         )}
 
         {bans.map(ban => (
@@ -81,10 +81,10 @@ export default function BanListPage({ serverId, token, onClose }: BanListPagePro
                 {ban.username}
               </p>
               <p style={{ color: '#a3a3a3', fontSize: '12px', margin: '4px 0 0' }}>
-                Raison : {ban.reason || 'Aucune'} •{' '}
+                {t('ban.reason_prefix', { reason: ban.reason || t('ban.no_reason') })} •{' '}
                 {ban.expires_at
-                  ? `Expire le ${new Date(ban.expires_at).toLocaleDateString()}`
-                  : 'Ban permanent'}
+                  ? t('ban.expires', { date: new Date(ban.expires_at).toLocaleDateString() })
+                  : t('ban.permanent')}
               </p>
             </div>
             <button
@@ -92,7 +92,7 @@ export default function BanListPage({ serverId, token, onClose }: BanListPagePro
               className="btn-secondary"
               style={{ fontSize: '12px', padding: '6px 12px' }}
             >
-              Débannir
+              {t('ban.unban')}
             </button>
           </div>
         ))}

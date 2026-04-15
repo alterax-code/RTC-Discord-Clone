@@ -8,10 +8,16 @@ import ChannelsList from '@/components/ChannelsList';
 import MembersList from '@/components/MembersList';
 import MessageList from '@/components/MessageList';
 import ChatInput from '@/components/ChatInput';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { serversApi, channelsApi, messagesApi } from '@/lib/api';
-import { isAuthenticated, getCurrentUser } from '@/lib/auth';
+import { isAuthenticated, getCurrentUser, getAuthToken } from '@/lib/auth';
 import wsClient from '@/lib/websocket';
-import { Channel, WSEvent } from '@/lib/types';
+import { Channel, MemberRole, WSEvent } from '@/lib/types';
+
+interface Reaction {
+  emoji: string;
+  user_ids: string[];
+}
 
 interface DisplayMessage {
   id: string;
@@ -19,6 +25,8 @@ interface DisplayMessage {
   username: string;
   content: string;
   timestamp: string;
+  reactions?: Reaction[];
+  edited_at?: any;
 }
 
 interface DisplayMember {
@@ -79,6 +87,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const currentUser = getCurrentUser();
+  const token = getAuthToken() || '';
   const messageIdsRef = useRef<Set<string>>(new Set());
   const selectedChannelRef = useRef('');
   useEffect(() => { selectedChannelRef.current = selectedChannel; }, [selectedChannel]);
@@ -138,6 +147,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             content: m.content || '',
             timestamp: formatTime(m.created_at),
             messageType: m.message_type || 'user',
+            reactions: m.reactions || [],
+            edited_at: m.edited_at || null,
           };
         });
         messageIdsRef.current = ids;
@@ -182,6 +193,13 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             timestamp: formatTime(msg.created_at || new Date().toISOString()),
             messageType: msg.message_type || 'user',
           }]);
+          // Desktop notification via Electron (no-op in browser)
+          if (typeof window !== 'undefined' && (window as any).electronAPI) {
+            (window as any).electronAPI.notify(
+              msg.username || 'Nouveau message',
+              msg.content || ''
+            );
+          }
           if (msg.user_id) {
             const timer = typingTimersRef.current.get(msg.user_id);
             if (timer) { clearTimeout(timer); typingTimersRef.current.delete(msg.user_id); }
@@ -208,7 +226,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           if (server_id !== serverId) break;
           setMembers(prev => {
             if (prev.find(m => m.id === user_id)) return prev;
-            return [...prev, { id: user_id, username, role, online: true }];
+            return [...prev, { id: user_id, username, role: role as DisplayMember['role'], online: true }];
           });
           setOnlineUserIds(prev => new Set([...prev, user_id]));
           break;
@@ -225,7 +243,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           if (server_id !== serverId) break;
           setChannels(prev => {
             if (prev.find(c => c.id === channel.id)) return prev;
-            return [...prev, channel];
+            return [...prev, channel as Channel];
           });
           if (pendingChannelSelectRef.current === channel.id) {
             setSelectedChannel(channel.id);
@@ -275,6 +293,46 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           typingTimersRef.current.set(user_id, newTimer);
           break;
         }
+        case 'reaction_added': {
+          const { message_id: _raw_mid_add, emoji, user_id } = event.data || {};
+          const message_id = extractId(_raw_mid_add);
+          setMessages(prev => prev.map(m => {
+            if (!message_id || m.id !== message_id) return m;
+            const reactions = m.reactions || [];
+            const existing = reactions.find(r => r.emoji === emoji);
+            if (existing) {
+              if (existing.user_ids.includes(user_id)) return m;
+              return { ...m, reactions: reactions.map(r => r.emoji === emoji ? { ...r, user_ids: [...r.user_ids, user_id] } : r) };
+            }
+            return { ...m, reactions: [...reactions, { emoji, user_ids: [user_id] }] };
+          }));
+          break;
+        }
+        case 'reaction_removed': {
+          const { message_id: _raw_mid_rm, emoji, user_id } = event.data || {};
+          const message_id = extractId(_raw_mid_rm);
+          setMessages(prev => prev.map(m => {
+            if (!message_id || m.id !== message_id) return m;
+            const reactions = (m.reactions || [])
+              .map(r => r.emoji === emoji ? { ...r, user_ids: r.user_ids.filter(id => id !== user_id) } : r)
+              .filter(r => r.user_ids.length > 0);
+            return { ...m, reactions };
+          }));
+          break;
+        }
+        case 'message_deleted': {
+          const { message_id } = event.data || {};
+          if (message_id) setMessages(prev => prev.filter(m => m.id !== message_id));
+          break;
+        }
+        case 'message_edited': {
+          const { message_id, channel_id, content, edited_at } = event.data || {};
+          if (channel_id && channel_id !== selectedChannelRef.current) break;
+          setMessages(prev => prev.map(m =>
+            m.id === message_id ? { ...m, content, edited_at } : m
+          ));
+          break;
+        }
       }
     };
     const unsub = wsClient.onEvent(handler);
@@ -298,6 +356,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           content: m.content || '',
           timestamp: formatTime(m.created_at),
           messageType: m.message_type || 'user',
+          reactions: m.reactions || [],
+          edited_at: m.edited_at || null,
         };
       });
       setMessages(prev => [...newMsgs, ...prev]);
@@ -378,7 +438,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   }, [serverId, router, currentUser, members]);
 
   const handleUpdateRole = useCallback(async (userId: string, newRole: string) => {
-    await serversApi.updateMember(serverId, userId, { role: newRole });
+    await serversApi.updateMember(serverId, userId, { role: newRole as MemberRole });
     setMembers(prev => prev.map(m => {
       if (newRole === 'owner') {
         if (m.id === currentUser?.id) return { ...m, role: 'admin' as const };
@@ -447,6 +507,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               <h1 className="channel-title">{channelName}</h1>
             </div>
             <div className="chat-header-right" style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <LanguageSwitcher />
               <button
                 onClick={(e) => { e.stopPropagation(); setShowInviteModal(true); setShowSettings(false); }}
                 style={{ cursor: 'pointer', fontSize: '13px', background: '#248046', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', fontWeight: 600 }}
@@ -506,7 +567,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                         </button>
                       </div>
                     ) : (
-                      <div style={{ color: '#888', fontStyle: 'italic' }}>Aucun code disponible</div>
+                      <div style={{ color: '#888', fontStyle: 'italic' }}>{t('chat.no_invite_code')}</div>
                     )}
                   </div>
                 </React.Fragment>
@@ -528,7 +589,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 disabled={loadingMoreMessages}
                 style={{ background: 'none', border: '1px solid #3f4147', color: '#8e9297', borderRadius: '6px', padding: '6px 16px', cursor: 'pointer', fontSize: '0.8rem' }}
               >
-                {loadingMoreMessages ? t('common.loading') : '↑ Charger les messages précédents'}
+                {loadingMoreMessages ? t('common.loading') : `↑ ${t('chat.load_more')}`}
               </button>
             </div>
           )}
@@ -543,6 +604,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             <MessageList
               messages={messages}
               currentUserId={currentUser?.id}
+              token={token}
               userRole={myRole}
               onDeleteMessage={async (msgId) => {
                 try {
@@ -551,6 +613,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 } catch {
                   alert(t('common.error'));
                 }
+              }}
+              onEditMessage={(msgId, newContent) => {
+                setMessages(prev => prev.map(m =>
+                  m.id === msgId ? { ...m, content: newContent, edited_at: new Date().toISOString() } : m
+                ));
               }}
             />
           )}
@@ -565,7 +632,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
                 </span>
                 <span>
                   <strong style={{ color: '#fff', fontStyle: 'normal' }}>{typingNames.join(', ')}</strong>
-                  {typingNames.length === 1 ? " est en train d'écrire..." : " sont en train d'écrire..."}
+                  {typingNames.length === 1 ? ` ${t('chat.typing_one')}` : ` ${t('chat.typing_many')}`}
                 </span>
                 <style>{`@keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }`}</style>
               </div>
@@ -594,9 +661,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }} onClick={() => setShowOwnerLeaveModal(false)}>
           <div style={{ background: '#2b2d31', borderRadius: '12px', padding: '32px', maxWidth: '420px', width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid #3f4147' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: '2rem', marginBottom: '12px', textAlign: 'center' }}>👑</div>
-            <h3 style={{ color: '#fff', margin: '0 0 12px', textAlign: 'center', fontSize: '1.1rem' }}>Impossible de quitter ce serveur</h3>
+            <h3 style={{ color: '#fff', margin: '0 0 12px', textAlign: 'center', fontSize: '1.1rem' }}>{t('chat.owner_leave_title')}</h3>
             <p style={{ color: '#b5bac1', fontSize: '0.9rem', lineHeight: '1.5', textAlign: 'center', margin: '0 0 24px' }}>
-              Vous êtes <strong style={{ color: '#f0b132' }}>propriétaire</strong> de ce serveur. Transférez la propriété avant de quitter.
+              {t('chat.owner_leave_body')}
             </p>
             <button
               onClick={() => setShowOwnerLeaveModal(false)}

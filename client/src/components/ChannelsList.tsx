@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface Channel {
   id: string;
@@ -17,7 +18,7 @@ interface ChannelsListProps {
   onDeleteChannel?: (channelId: string) => void;
   onRenameChannel?: (channelId: string, newName: string) => void;
   userRole?: 'owner' | 'admin' | 'member';
-  defaultChannelId?: string; // ← channel protégé (le premier créé)
+  defaultChannelId?: string;
   className?: string;
   onClose?: () => void;
 }
@@ -28,10 +29,11 @@ function ChannelMenu({
   channel: Channel;
   onRename: () => void;
   onDelete: () => void;
-  isDefault: boolean; // true = pas de bouton supprimer
+  isDefault: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations();
 
   useEffect(() => {
     if (!open) return;
@@ -52,7 +54,7 @@ function ChannelMenu({
     <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        title="Options"
+        title={t('common.options')}
         style={{
           background: 'none', border: 'none', color: '#8e9297',
           cursor: 'pointer', fontSize: '18px', padding: '0 4px',
@@ -77,10 +79,9 @@ function ChannelMenu({
             onMouseEnter={e => (e.currentTarget.style.background = '#5865f2')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
           >
-            ✏️ Renommer
+            ✏️ {t('chat.rename')}
           </button>
 
-          {/* Supprimer — masqué si channel par défaut */}
           {!isDefault && (
             <>
               <div style={{ height: '1px', background: '#3f4147', margin: '2px 0' }} />
@@ -90,7 +91,7 @@ function ChannelMenu({
                 onMouseEnter={e => { e.currentTarget.style.background = '#ed4245'; e.currentTarget.style.color = '#fff'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#ed4245'; }}
               >
-                🗑️ Supprimer
+                🗑️ {t('common.delete')}
               </button>
             </>
           )}
@@ -105,6 +106,7 @@ export default function ChannelsList({
   onCreateChannel, onDeleteChannel, onRenameChannel,
   userRole, defaultChannelId, className = '', onClose,
 }: ChannelsListProps) {
+  const t = useTranslations();
   const [showInput, setShowInput] = useState(false);
   const [newName, setNewName] = useState('');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -132,7 +134,7 @@ export default function ChannelsList({
 
   const handleDelete = (channelId: string, channelName: string) => {
     if (!onDeleteChannel) return;
-    if (!confirm(`Supprimer le channel #${channelName} ?`)) return;
+    if (!confirm(t('chat.delete_channel_confirm', { name: channelName }))) return;
     onDeleteChannel(channelId);
   };
 
@@ -143,7 +145,7 @@ export default function ChannelsList({
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <button className="server-dropdown">▼</button>
           {onClose && (
-            <button className="channels-close-btn" onClick={onClose} title="Fermer">✕</button>
+            <button className="channels-close-btn" onClick={onClose} title={t('common.close')}>✕</button>
           )}
         </div>
       </div>
@@ -151,16 +153,16 @@ export default function ChannelsList({
       <div className="channels-content">
         <div className="channels-section">
           <div className="section-header">
-            <span className="section-title">CHANNELS TEXTE</span>
+            <span className="section-title">{t('chat.text_channels')}</span>
             {canManage && (
-              <button className="add-channel-btn" title="Créer un channel"
+              <button className="add-channel-btn" title={t('chat.create_channel_title')}
                 onClick={() => setShowInput(!showInput)}>+</button>
             )}
           </div>
 
           {showInput && canManage && (
             <div className="create-channel-form">
-              <div className="create-channel-label">NOUVEAU CHANNEL</div>
+              <div className="create-channel-label">{t('chat.new_channel')}</div>
               <input
                 type="text" value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -168,12 +170,12 @@ export default function ChannelsList({
                   if (e.key === 'Enter') handleCreate();
                   if (e.key === 'Escape') { setShowInput(false); setNewName(''); }
                 }}
-                placeholder="nom-du-channel" autoFocus className="create-channel-input"
+                placeholder={t('chat.channel_name_placeholder')} autoFocus className="create-channel-input"
               />
               <div className="create-channel-actions">
-                <button onClick={handleCreate} className="create-channel-btn-confirm">Créer</button>
+                <button onClick={handleCreate} className="create-channel-btn-confirm">{t('common.create')}</button>
                 <button onClick={() => { setShowInput(false); setNewName(''); }}
-                  className="create-channel-btn-cancel">Annuler</button>
+                  className="create-channel-btn-cancel">{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -182,7 +184,7 @@ export default function ChannelsList({
             {channels.map((channel) => {
               const isDefault = defaultChannelId
                 ? channel.id === defaultChannelId
-                : channel.id === channels[0]?.id; // fallback : premier de la liste
+                : channel.id === channels[0]?.id;
 
               return (
                 <div
@@ -217,7 +219,6 @@ export default function ChannelsList({
                       textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {channel.name}
-
                     </span>
                   )}
 

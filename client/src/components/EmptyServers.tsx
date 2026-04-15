@@ -1,17 +1,20 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface EmptyServersProps {
   onCreateClick: () => void;
 }
 
 export default function EmptyServers({ onCreateClick }: EmptyServersProps) {
+  const t = useTranslations();
   return (
     <div className="empty-state">
       <div className="empty-icon">🏜️</div>
-      <h2>Aucun serveur pour le moment</h2>
-      <p>Créez votre premier serveur pour commencer à discuter avec votre équipe</p>
+      <h2>{t('servers.empty_title')}</h2>
+      <p>{t('servers.empty_subtitle')}</p>
       <button className="btn-primary-red" onClick={onCreateClick}>
-        + Créer mon premier serveur
+        {t('servers.empty_create')}
       </button>
     </div>
   );

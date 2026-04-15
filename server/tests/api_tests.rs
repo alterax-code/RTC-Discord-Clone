@@ -763,7 +763,9 @@ async fn test_join_server_invalid_code_404() {
     let (token, _) = register_user(&client, "inv_code_user", "inv_code@example.com").await;
 
     let res = client
-        .post(format!("{BASE}/servers/00000000-0000-0000-0000-000000000000/join"))
+        .post(format!(
+            "{BASE}/servers/00000000-0000-0000-0000-000000000000/join"
+        ))
         .header("Authorization", format!("Bearer {token}"))
         .json(&json!({"invite_code": "INVALID"}))
         .send()
@@ -818,7 +820,9 @@ async fn test_delete_own_message() {
     let body: Value = res.json().await.unwrap();
     let msg_id = body["id"].as_str().unwrap_or("");
 
-    if msg_id.is_empty() { return; }
+    if msg_id.is_empty() {
+        return;
+    }
 
     // Delete it
     let res = client
@@ -941,7 +945,9 @@ async fn test_delete_message_not_owner_403() {
     let body: Value = res.json().await.unwrap();
     let msg_id = body["id"].as_str().unwrap_or("");
 
-    if msg_id.is_empty() { return; }
+    if msg_id.is_empty() {
+        return;
+    }
 
     // Member tries to delete owner's message - 403
     let res = client
@@ -972,7 +978,9 @@ async fn test_ws_member_kicked_event() {
 
     // Owner kicks user2
     let res = client
-        .delete(format!("{BASE}/servers/{server_id}/members/{user2_id}/kick"))
+        .delete(format!(
+            "{BASE}/servers/{server_id}/members/{user2_id}/kick"
+        ))
         .header("Authorization", format!("Bearer {token1}"))
         .send()
         .await
@@ -1026,7 +1034,9 @@ async fn test_ws_reaction_added() {
     let body: Value = res.json().await.unwrap();
     let msg_id = body["id"].as_str().unwrap_or("");
 
-    if msg_id.is_empty() { return; }
+    if msg_id.is_empty() {
+        return;
+    }
 
     // Add reaction
     let res = client
@@ -1055,4 +1065,3 @@ async fn test_ws_dm_message() {
         .unwrap();
     assert!(res.status().is_success() || res.status().as_u16() == 201);
 }
-

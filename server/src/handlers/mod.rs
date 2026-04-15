@@ -9,28 +9,38 @@
 //! - invitations : création d'invitations
 //! - health    : health check
 
-pub use members::{ban_member, kick_member, list_bans, list_members, unban_member, update_member_role};
+pub use members::{
+    ban_member, kick_member, list_bans, list_members, unban_member, update_member_role,
+};
 
 mod channels;
+mod dm;
+mod gifs;
 mod health;
 mod invitations;
 mod members;
 mod messages;
+mod reactions;
 mod servers;
-mod gifs; // Nouveau module pour la recherche de GIFs #Noémie
-// ============================================
-// RE-EXPORTS — main.rs importe toujours handlers::create_server, etc.
-// ============================================
+
+pub use dm::{
+    add_dm_reaction_http, delete_dm_conversation, get_dm_messages, list_dm_conversations,
+    remove_dm_reaction_http, send_dm, start_dm, start_dm_by_username,
+}; // Nouveau module pour la recherche de GIFs #Noémie
+   // ============================================
+   // RE-EXPORTS — main.rs importe toujours handlers::create_server, etc.
+   // ============================================
 
 pub use channels::{create_channel, delete_channel, get_channel, list_channels, update_channel};
+pub use gifs::search_gifs;
 pub use health::health;
 pub use invitations::create_invitation;
 pub use messages::{create_message_http, delete_message_http, edit_message_http, list_messages};
+pub use reactions::{add_reaction_http, remove_reaction_http};
 pub use servers::{
     create_server, delete_server, get_server, join_server, join_server_by_code, leave_server,
     list_servers, update_server,
-};
-pub use gifs::search_gifs; // Export du handler de recherche de GIFs #Noémie
+}; // Export du handler de recherche de GIFs #Noémie
 
 // ============================================
 // HELPERS PARTAGÉS — utilisés par tous les sous-modules

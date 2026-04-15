@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Notification } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain } = require('electron');
+const path = require('path');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -8,6 +9,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 
@@ -15,14 +17,12 @@ function createWindow() {
   win.loadURL('http://localhost:3000');
 
   // Notifications système quand la fenêtre n'est pas au premier plan
-  win.webContents.on('ipc-message', (event, channel, ...args) => {
-    if (channel === 'notify' && !win.isFocused()) {
-      const notif = new Notification({
-        title: args[0] || 'Nouveau message',
-        body: args[1] || '',
-      });
-      notif.show();
-    }
+  ipcMain.on('notify', (_event, title, body) => {
+    if (win.isFocused()) return;
+    new Notification({
+      title: title || 'Nouveau message',
+      body: body || '',
+    }).show();
   });
 }
 

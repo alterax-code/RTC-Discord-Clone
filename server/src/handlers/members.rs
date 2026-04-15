@@ -7,9 +7,9 @@ use axum::{
 };
 use uuid::Uuid;
 
+use super::get_member_role;
 use crate::models::*;
 use crate::AppState;
-use super::get_member_role;
 
 // ==================== LIST MEMBERS ====================
 
@@ -143,14 +143,14 @@ pub async fn update_member_role(
 }
 
 // ==================== KICK ====================
- 
+
 pub async fn kick_member(
     State(state): State<AppState>,
     Extension(user_id): Extension<Uuid>,
     Path((server_id, target_user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, StatusCode> {
     let pool = &state.db;
- 
+
     // 1. Vérifier que le caller est admin ou owner
     let caller_role = get_member_role(pool, user_id, server_id)
         .await
@@ -158,17 +158,17 @@ pub async fn kick_member(
     if !super::is_admin_or_owner(&caller_role) {
         return Err(StatusCode::FORBIDDEN);
     }
- 
+
     // 2. Vérifier que la target est bien membre
     let target_role = get_member_role(pool, target_user_id, server_id)
         .await
         .ok_or(StatusCode::NOT_FOUND)?;
- 
+
     // 3. Interdire de kicker l'owner
     if target_role == "owner" {
         return Err(StatusCode::FORBIDDEN);
     }
- 
+
     // 4. Supprimer de server_members (= le kick)
     sqlx::query("DELETE FROM server_members WHERE user_id = $1 AND server_id = $2")
         .bind(target_user_id)
@@ -176,7 +176,7 @@ pub async fn kick_member(
         .execute(pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
- 
+
     // 5. Broadcast WS — Ladji s'occupe de l'event côté WS handler,
     //    on publie juste sur le bus
     let ws_event = serde_json::json!({
@@ -188,7 +188,7 @@ pub async fn kick_member(
         }
     });
     let _ = state.bus.send(ws_event.to_string());
- 
+
     Ok(StatusCode::NO_CONTENT)
 }
 // ==================== BAN ====================
@@ -224,9 +224,9 @@ pub async fn ban_member(
     }
 
     // 3. Calculer expires_at si durée fournie
-    let expires_at = payload.duration_hours.map(|h| {
-        (chrono::Utc::now() + chrono::Duration::hours(h)).naive_utc()
-    });
+    let expires_at = payload
+        .duration_hours
+        .map(|h| (chrono::Utc::now() + chrono::Duration::hours(h)).naive_utc());
 
     // 4. Insérer dans server_bans
     sqlx::query(
@@ -302,13 +302,18 @@ pub async fn list_bans(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let result: Vec<serde_json::Value> = bans.iter().map(|b| serde_json::json!({
-        "user_id": b.user_id.to_string(),
-        "username": b.username,
-        "reason": b.reason,
-        "expires_at": b.expires_at.map(|dt| dt.to_string()),
-        "created_at": b.created_at.map(|dt| dt.to_string()),
-    })).collect();
+    let result: Vec<serde_json::Value> = bans
+        .iter()
+        .map(|b| {
+            serde_json::json!({
+                "user_id": b.user_id.to_string(),
+                "username": b.username,
+                "reason": b.reason,
+                "expires_at": b.expires_at.map(|dt| dt.to_string()),
+                "created_at": b.created_at.map(|dt| dt.to_string()),
+            })
+        })
+        .collect();
 
     Ok(Json(result))
 }
@@ -327,14 +332,12 @@ pub async fn unban_member(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    sqlx::query(
-        "DELETE FROM server_bans WHERE server_id = $1 AND user_id = $2",
-    )
-    .bind(server_id)
-    .bind(target_user_id)
-    .execute(pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    sqlx::query("DELETE FROM server_bans WHERE server_id = $1 AND user_id = $2")
+        .bind(server_id)
+        .bind(target_user_id)
+        .execute(pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::NO_CONTENT)
 }

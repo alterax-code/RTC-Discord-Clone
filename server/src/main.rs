@@ -22,7 +22,7 @@ mod mongo;
 mod websocket;
 
 use auth::AuthConfig;
-use models::Message;
+use models::{DmMessage, Message};
 use websocket::OnlineUsers;
 
 /// État partagé de l'application
@@ -32,6 +32,8 @@ pub struct AppState {
     pub db: PgPool,
     /// MongoDB messages collection
     pub messages: Collection<Message>,
+    /// MongoDB DM messages collection
+    pub dm_messages: Collection<DmMessage>,
     /// Broadcast channel pour WebSocket
     pub bus: broadcast::Sender<String>,
     /// Configuration JWT
@@ -64,22 +66,23 @@ async fn main() {
         }
     }
     println!("✅ SQL migration applied!");
-    
+
     let migration_v2 = include_str!("../migrations/002_v2.sql");
-for statement in migration_v2.split(';') {
-    let trimmed = statement.trim();
-    if !trimmed.is_empty() {
-        sqlx::query(trimmed)
-            .execute(&pool)
-            .await
-            .expect("❌ Migration v2 failed");
+    for statement in migration_v2.split(';') {
+        let trimmed = statement.trim();
+        if !trimmed.is_empty() {
+            sqlx::query(trimmed)
+                .execute(&pool)
+                .await
+                .expect("❌ Migration v2 failed");
+        }
     }
-}
-println!("✅ SQL migration v2 applied!");
+    println!("✅ SQL migration v2 applied!");
 
     db::assert_schema(&pool).await.ok();
 
     let messages_collection = mongo::init_mongo().await;
+    let dm_messages_collection = mongo::init_dm_mongo().await;
 
     // Broadcast channel (capacité 1024 messages)
     let (bus, _) = broadcast::channel::<String>(1024);
@@ -89,6 +92,7 @@ println!("✅ SQL migration v2 applied!");
     let state = AppState {
         db: pool,
         messages: messages_collection,
+        dm_messages: dm_messages_collection,
         bus,
         auth_cfg,
         online_users: Arc::new(RwLock::new(HashSet::new())),
@@ -99,15 +103,18 @@ println!("✅ SQL migration v2 applied!");
         .route("/health", get(handlers::health))
         .route("/auth/signup", post(auth::register_handler))
         .route("/auth/login", post(auth::login_handler))
-        .route("/ws", get(websocket::ws_handler));
+        .route("/ws", get(websocket::ws_handler))
+        .route("/gif/search", get(handlers::search_gifs));
 
     // Routes protégées (auth requise)
     let protected_routes = Router::new()
         // Auth
         .route("/auth/logout", post(auth::logout_handler))
         .route("/me", get(auth::me_handler))
-        .route("/servers/:server_id/members/:user_id/kick",
-    axum::routing::delete(handlers::kick_member))
+        .route(
+            "/servers/{server_id}/members/{user_id}/kick",
+            axum::routing::delete(handlers::kick_member),
+        )
         // Servers
         .route("/servers", post(handlers::create_server))
         .route("/servers", get(handlers::list_servers))
@@ -144,15 +151,52 @@ println!("✅ SQL migration v2 applied!");
             post(handlers::create_message_http),
         )
         .route("/channels/{id}/messages", get(handlers::list_messages))
-        .route("/messages/{id}",
-            delete(handlers::delete_message_http)
-            .put(handlers::edit_message_http)
+        .route(
+            "/messages/{id}",
+            delete(handlers::delete_message_http).put(handlers::edit_message_http),
+        )
+        // Reactions
+        .route(
+            "/messages/{id}/reactions",
+            post(handlers::add_reaction_http),
+        )
+        .route(
+            "/messages/{id}/reactions/{emoji}",
+            delete(handlers::remove_reaction_http),
         )
         // Ban
-        .route("/servers/:server_id/members/:user_id/ban", axum::routing::post(handlers::ban_member))
-        .route("/servers/:id/bans", axum::routing::get(handlers::list_bans))
-        .route("/servers/:server_id/bans/:user_id", axum::routing::delete(handlers::unban_member))
-        .route("/gif/search", get(handlers::search_gifs))
+        .route(
+            "/servers/{server_id}/members/{user_id}/ban",
+            axum::routing::post(handlers::ban_member),
+        )
+        .route(
+            "/servers/{id}/bans",
+            axum::routing::get(handlers::list_bans),
+        )
+        .route(
+            "/servers/{server_id}/bans/{user_id}",
+            axum::routing::delete(handlers::unban_member),
+        )
+        // DM (Messages Privés)
+        .route("/dm", get(handlers::list_dm_conversations))
+        .route("/dm/start", post(handlers::start_dm))
+        .route(
+            "/dm/start-by-username",
+            post(handlers::start_dm_by_username),
+        )
+        .route("/dm/{id}", delete(handlers::delete_dm_conversation))
+        .route(
+            "/dm/{id}/messages",
+            get(handlers::get_dm_messages).post(handlers::send_dm),
+        )
+        .route(
+            "/dm/messages/{id}/reactions",
+            post(handlers::add_dm_reaction_http),
+        )
+        .route(
+            "/dm/messages/{id}/reactions/{emoji}",
+            delete(handlers::remove_dm_reaction_http),
+        )
         // Middleware auth
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),

@@ -123,6 +123,12 @@ pub struct CreateInvitationPayload {
 // ===================== MESSAGE (MongoDB) =====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Reaction {
+    pub emoji: String,
+    pub user_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
@@ -133,13 +139,51 @@ pub struct Message {
     pub created_at: BsonDateTime,
     pub deleted: bool,
     /// "user" (défaut) ou "system" pour les messages d'événements serveur
-    #[serde(skip_serializing_if = 
-        "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edited_at: Option<BsonDateTime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reactions: Option<Vec<Reaction>>,
 }
 
 fn default_message_type() -> String {
     "user".to_string()
+}
+
+// ===================== DM MESSAGE (MongoDB) =====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DmMessage {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    pub conversation_id: String,
+    pub user_id: String,
+    pub username: String,
+    pub content: String,
+    pub created_at: BsonDateTime,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reactions: Option<Vec<Reaction>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SendDmPayload {
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct DmConversationRow {
+    pub id: Uuid,
+    pub other_user_id: Uuid,
+    pub other_username: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StartDmPayload {
+    pub user_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StartDmByUsernamePayload {
+    pub username: String,
 }
 
 #[derive(Debug, Deserialize)]

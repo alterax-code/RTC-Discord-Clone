@@ -14,10 +14,12 @@ interface ReactionPickerProps {
   reactions: Reaction[];
   currentUserId: string;
   token: string;
+  apiBase?: string;
+  onReactionChange?: (emoji: string, added: boolean) => void;
 }
 
 export default function ReactionPicker({
-  messageId, reactions, currentUserId, token,
+  messageId, reactions, currentUserId, token, apiBase = 'messages', onReactionChange,
 }: ReactionPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
 
@@ -27,19 +29,28 @@ export default function ReactionPicker({
       .find(r => r.emoji === emoji)
       ?.user_ids.includes(currentUserId);
 
+    // Optimistic update before API call
+    onReactionChange?.(emoji, !hasReacted);
+
     const method = hasReacted ? 'DELETE' : 'POST';
     const url = hasReacted
-      ? `${process.env.NEXT_PUBLIC_API_URL}/messages/${messageId}/reactions/${emoji}`
-      : `${process.env.NEXT_PUBLIC_API_URL}/messages/${messageId}/reactions`;
+      ? `${process.env.NEXT_PUBLIC_API_URL}/${apiBase}/${messageId}/reactions/${encodeURIComponent(emoji)}`
+      : `${process.env.NEXT_PUBLIC_API_URL}/${apiBase}/${messageId}/reactions`;
 
-    await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: method === 'POST' ? JSON.stringify({ emoji }) : undefined,
-    });
+    try {
+      await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: method === 'POST' ? JSON.stringify({ emoji }) : undefined,
+      });
+    } catch (err) {
+      console.error('Reaction failed:', err);
+      // Rollback optimistic update on error
+      onReactionChange?.(emoji, !!hasReacted);
+    }
   };
 
   return (
