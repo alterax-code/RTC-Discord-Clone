@@ -1054,12 +1054,26 @@ async fn test_ws_reaction_added() {
 async fn test_ws_dm_message() {
     let client = Client::new();
     let (token1, _) = register_user(&client, "ws_dm_user1", "ws_dm_user1@example.com").await;
-    let (_, user2_id) = register_user(&client, "ws_dm_user2", "ws_dm_user2@example.com").await;
+    let _ = register_user(&client, "ws_dm_user2", "ws_dm_user2@example.com").await;
 
-    // Create DM conversation
+    // Start DM conversation by username
     let res = client
-        .post(format!("{BASE}/dm/{user2_id}"))
+        .post(format!("{BASE}/dm/start-by-username"))
         .header("Authorization", format!("Bearer {token1}"))
+        .json(&serde_json::json!({ "username": "ws_dm_user2" }))
+        .send()
+        .await
+        .unwrap();
+    assert!(res.status().is_success() || res.status().as_u16() == 201);
+
+    let body: serde_json::Value = res.json().await.unwrap();
+    let conv_id = body["id"].as_str().unwrap().to_string();
+
+    // Send a message to the conversation
+    let res = client
+        .post(format!("{BASE}/dm/{conv_id}/messages"))
+        .header("Authorization", format!("Bearer {token1}"))
+        .json(&serde_json::json!({ "content": "hello dm" }))
         .send()
         .await
         .unwrap();
